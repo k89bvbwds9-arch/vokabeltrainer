@@ -405,8 +405,18 @@ function zeichneVokabeln() {
 
 function zeichneFortschritt(zustand) {
   const s = lernen.statistik(zustand);
+
+  // Leerer Bestand: Balken auf null waeren als erstes Element des Bildschirms
+  // nur entmutigend und sagen nichts.
+  if (!s.karten) {
+    el("fortschrittZahlen").innerHTML =
+      `<p class="hinweis">Noch keine Vokabeln. Über „Hinzufügen“ kommt die erste herein.</p>`;
+    return;
+  }
+
   const hoechster = Math.max(1, ...s.proStufe);
   el("fortschrittZahlen").innerHTML = `
+    <p class="label">Fortschritt</p>
     <p class="hinweis">${s.inArbeit} in Arbeit · ${s.neu} noch nie abgefragt · ${s.ruhend} im Ruhestand</p>
     <div class="stufenBalken">
       ${s.proStufe.map((n) => `<div style="height:${(n / hoechster) * 100}%"><span>${n}</span></div>`).join("")}

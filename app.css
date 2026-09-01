@@ -243,8 +243,19 @@ input[type="search"] { margin-bottom: 12px; }
 .vokabelZeile.wirdBearbeitet { background: var(--karte); border-radius: var(--rundung); padding: 10px 12px; }
 .vokabelZeile.wirdBearbeitet .pruefFelder { flex: 1; min-width: 0; }
 
-.einstellungen { margin-top: 32px; border-top: 1px solid var(--linie); padding-top: 12px; }
-.einstellungen summary { font-size: 15px; color: var(--schrift-leise); padding: 8px 2px; cursor: pointer; }
+/* Fortschritt steht jetzt oben, die Liste unten. Die Einstellungen sitzen
+   dazwischen und brauchen deshalb Trennlinien auf BEIDEN Seiten - vorher
+   waren sie das Letzte auf der Seite und kamen mit einer aus. */
+.fortschrittKasten { margin: 4px 0 18px; }
+
+.einstellungen {
+  border-top: 1px solid var(--linie);
+  border-bottom: 1px solid var(--linie);
+  padding: 4px 0;
+  margin-bottom: 22px;
+}
+.einstellungen summary { font-size: 15px; color: var(--schrift-leise); padding: 10px 2px; cursor: pointer; }
+.einstellungen[open] { padding-bottom: 16px; }
 
 .stufenBalken { display: flex; align-items: flex-end; gap: 6px; height: 70px; margin-top: 10px; }
 .stufenBalken div { flex: 1; background: var(--ton); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }

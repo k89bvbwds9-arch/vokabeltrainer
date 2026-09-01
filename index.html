@@ -108,9 +108,13 @@
   <section class="schirm" data-schirm="vokabeln" hidden>
     <header class="kopf"><h1>Vokabeln</h1></header>
 
-    <input type="search" id="suche" placeholder="Suchen …" autocapitalize="off" autocorrect="off">
-    <p class="listenKopf" id="listenKopf"></p>
-    <div id="vokabelListe"></div>
+    <!-- Reihenfolge auf Renes Wunsch: erst der Fortschritt, dann die
+         Einstellungen, dann die Liste. Der Fortschritt beantwortet die Frage,
+         mit der man diesen Bildschirm meistens oeffnet ("wie weit bin ich?") -
+         die lange Liste haette ihn sonst nach unten geschoben. -->
+    <div class="fortschrittKasten">
+      <div id="fortschrittZahlen"></div>
+    </div>
 
     <details class="einstellungen">
       <summary>Einstellungen und Sicherung</summary>
@@ -133,12 +137,11 @@
         </div>
         <input type="file" id="sicherungsWahl" accept="application/json,.json" hidden>
       </div>
-
-      <div class="feldGruppe">
-        <p class="label">Fortschritt</p>
-        <div id="fortschrittZahlen"></div>
-      </div>
     </details>
+
+    <input type="search" id="suche" placeholder="Suchen …" autocapitalize="off" autocorrect="off">
+    <p class="listenKopf" id="listenKopf"></p>
+    <div id="vokabelListe"></div>
   </section>
 
 </main>
