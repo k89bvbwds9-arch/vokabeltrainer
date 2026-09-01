@@ -21,8 +21,17 @@ Sprachdaten nach. Danach funktioniert **alles offline**, auch im Flugmodus.
 
 **Lernen.** „Los geht's" nimmt fünf Karten: erst was liegengeblieben ist, dann
 was heute dran ist, dann Neues zum Auffüllen. Karte antippen deckt die Lösung
-auf, dann „Gewusst" oder „Nicht gewusst". Das Lautsprechersymbol liest das Wort
-vor.
+auf, dann „Gewusst" oder „Nicht gewusst".
+
+Das **Lautsprechersymbol** liest immer das *fremdsprachige* Wort vor — also
+das in der Sprache, die beim Anlegen links stand („Sprache der Vokabel"), nie
+die deutsche Seite. Bei Russisch–Deutsch also immer das Russische, bei
+Italienisch–Deutsch immer das Italienische, gleich in welche Richtung gefragt
+wird.
+
+Geht die Frage von der Muttersprache aus (Deutsch → Russisch), erscheint der
+Lautsprecher **erst nach dem Aufdecken** und steht dann unter der Antwort.
+Vorher wäre er ein Weg, sich die Lösung vorsagen zu lassen, ohne sie zu wissen.
 
 **Hinzufügen.** Sprachpaar wählen, Foto auswählen. Nach ein paar Sekunden
 erscheinen die gefundenen Paare zur Bestätigung. Gelb umrandete Zeilen sind

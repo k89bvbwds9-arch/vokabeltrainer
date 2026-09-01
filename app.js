@@ -154,9 +154,20 @@ function zeigeKarte() {
   el("bewertung").hidden = true;
   el("rundeFertig").hidden = true;
   el("karte").hidden = false;
-  el("btnSprich").hidden = !window.speechSynthesis;
-  el("btnSprich").dataset.text = frageText;
-  el("btnSprich").dataset.sprache = frageSprache;
+
+  // Vorgelesen wird IMMER das fremdsprachige Wort, nie die Muttersprache -
+  // also das der Sprache, die beim Anlegen links stand ("Sprache der
+  // Vokabel"). Die deutsche Seite vorzulesen bringt beim Lernen nichts.
+  //
+  // Bei "rueck" ist dieses Wort aber die gesuchte Antwort. Der Knopf
+  // erscheint deshalb erst nach dem Aufdecken - sonst waere Vorlesen ein
+  // Weg, sich die Loesung vorsagen zu lassen, ohne sie zu wissen.
+  const knopf = el("btnSprich");
+  knopf.dataset.text = vokabel.quelle;
+  knopf.dataset.sprache = paar.quelle;
+  knopf.hidden = !window.speechSynthesis || !hin;
+  // Der Knopf wandert zu dem Wort, das er vorliest.
+  el("karte").insertBefore(knopf, hin ? el("trenner") : el("tippHinweis"));
 
   el("abfrageZaehler").textContent = `${S.stelle + 1}/${S.runde.length}`;
   el("fortschrittBalken").style.width = `${(S.stelle / S.runde.length) * 100}%`;
@@ -169,6 +180,8 @@ function deckeAuf() {
   el("trenner").hidden = false;
   el("tippHinweis").hidden = true;
   el("bewertung").hidden = false;
+  // Bei Muttersprache -> Fremdsprache steht das vorlesbare Wort erst jetzt da.
+  if (window.speechSynthesis) el("btnSprich").hidden = false;
 }
 
 async function bewerte(gewusst) {
