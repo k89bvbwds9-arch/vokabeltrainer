@@ -10,17 +10,13 @@
 // "import { createWorker }" scheitert deshalb erst zur Laufzeit, mit einer
 // Meldung, die das Modul nennt statt die Ursache.
 import Tesseract from "./vendor/tesseract/tesseract.esm.min.js";
-import { MAX_BREITE, DUNKEL_AB } from "./bildwerte.js";
+import { MAX_BREITE, DUNKEL_AB, SEITENMODUS, SEITENMODUS_ERSATZ, MIN_ZEILEN } from "./bildwerte.js";
 
 const PFADE = {
   worker: "./vendor/tesseract/worker.min.js",
   core: "./vendor/tesseract/",
   sprachen: "./sprachdaten/",
 };
-
-// Modus 4 = eine Spalte mit wechselnden Schriftgroessen. Gemessen an einem
-// Testbild: Modus 4 und 3 beide fehlerfrei, Modus 6 deutlich schlechter.
-const SEITENMODUS = "4";
 
 // Ein Arbeiter je Sprache, ueber die Sitzung hinweg wiederverwendet. Das
 // Anlegen kostet mehrere Sekunden - beim zweiten Foto waere das unnoetig.
@@ -36,7 +32,6 @@ async function holeArbeiter(sprache, melde) {
     langPath: PFADE.sprachen,
     gzip: true,
   });
-  await w.setParameters({ tessedit_pageseg_mode: SEITENMODUS });
   arbeiter.set(sprache, w);
   return w;
 }
@@ -167,6 +162,12 @@ function zeilenAus(daten) {
 
 const schlank = (zeilen) => zeilen.map((z) => ({ text: z.text, conf: z.confidence, bbox: z.bbox }));
 
+async function lies(arbeiter, eingabe, modus) {
+  await arbeiter.setParameters({ tessedit_pageseg_mode: modus });
+  const { data } = await arbeiter.recognize(eingabe, {}, { blocks: true, text: false });
+  return schlank(zeilenAus(data));
+}
+
 /**
  * @param datei  die vom Nutzer gewaehlte Bilddatei
  * @param paar   { quelle: "rus", ziel: "deu" }
@@ -185,14 +186,23 @@ export async function erkenne(datei, paar, melde) {
   // Nacheinander, nicht parallel. Zwei Tesseract-Arbeiter gleichzeitig
   // belegen auf einem iPhone rund 500 MB - Safari beendet die Seite dann
   // wortlos, und der Nutzer sieht nur einen Neustart ohne Erklaerung.
-  melde?.(`Text wird gelesen (1 von 2) …`);
-  const ergQ = await arbeiterQ.recognize(eingabe, {}, { blocks: true, text: false });
-  melde?.(`Text wird gelesen (2 von 2) …`);
-  const ergZ = await arbeiterZ.recognize(eingabe, {}, { blocks: true, text: false });
+  melde?.("Text wird gelesen (1 von 2) …");
+  let quelle = await lies(arbeiterQ, eingabe, SEITENMODUS);
+  melde?.("Text wird gelesen (2 von 2) …");
+  let ziel = await lies(arbeiterZ, eingabe, SEITENMODUS);
 
-  return {
-    quelle: schlank(zeilenAus(ergQ.data)),
-    ziel: schlank(zeilenAus(ergZ.data)),
-    dunkelmodus,
-  };
+  // Auffaellig wenige Zeilen? Dann lag es womoeglich an der Seitenaufteilung
+  // und nicht am Bild. Der zweite Modus bekommt eine Chance, und es gewinnt
+  // der mit mehr Zeilen. Begruendung mit Zahlen in bildwerte.js.
+  if (Math.min(quelle.length, ziel.length) < MIN_ZEILEN) {
+    melde?.("Zweiter Versuch mit anderer Aufteilung …");
+    const quelle2 = await lies(arbeiterQ, eingabe, SEITENMODUS_ERSATZ);
+    const ziel2 = await lies(arbeiterZ, eingabe, SEITENMODUS_ERSATZ);
+    if (Math.min(quelle2.length, ziel2.length) > Math.min(quelle.length, ziel.length)) {
+      quelle = quelle2;
+      ziel = ziel2;
+    }
+  }
+
+  return { quelle, ziel, dunkelmodus };
 }

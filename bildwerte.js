@@ -54,6 +54,33 @@
 // Normalfall. Wer es erneut versuchen will - die Varianten stehen noch in
 // werkzeug/varianten.mjs, und die Messung dauert eine Minute.
 
+// --- Seitenaufteilung -----------------------------------------------------
+// Wie Tesseract das Bild in Zeilen zerlegt.
+//
+//   4 = eine Spalte mit wechselnden Schriftgroessen  (die Kartenliste)
+//   6 = ein einheitlicher Textblock
+//
+// An den 19 echten Screenshots war Modus 4 klar besser (Modus 6 zerschnitt
+// Woerter und liess den App-Titel durch). An einem arabisch-deutschen
+// Testbild kippte es jedoch vollstaendig um:
+//
+//   Modus 4:  2 von 9 Zeilen gefunden
+//   Modus 6:  9 von 9 Zeilen gefunden
+//
+// Und zwar nicht wegen der Sprache - auch der deutsche Durchlauf fand in
+// Modus 4 nur zwei Zeilen. Die Spaltenerkennung kommt mit manchen Layouts
+// einfach nicht zurecht.
+//
+// Deshalb wird nicht mehr auf einen Modus gesetzt: Findet der erste
+// auffaellig wenige Zeilen, laeuft der zweite hinterher, und es gewinnt der
+// mit mehr Zeilen. Das kostet nur im schlechten Fall Zeit.
+export const SEITENMODUS = "4";
+export const SEITENMODUS_ERSATZ = "6";
+
+// Unter so vielen Zeilen gilt ein Ergebnis als verdaechtig duenn. Vier Zeilen
+// sind zwei Vokabelpaare - wer ein Bild fotografiert, hat mehr drauf.
+export const MIN_ZEILEN = 4;
+
 // Nur wenn ein Bild breiter ist als das, wird es ueberhaupt angefasst. Ein
 // iPhone-Foto hat leicht 4000 px Breite, und Tesseracts Laufzeit waechst mit
 // der Flaeche; fuer Text in Lesegroesse bringt mehr Aufloesung nichts.

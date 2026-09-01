@@ -1,0 +1,5 @@
+مرحبا|hallo
+شكرا|danke
+ماء|Wasser
+بيت|Haus
+كتاب|Buch

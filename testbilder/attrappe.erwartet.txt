@@ -1,0 +1,5 @@
+куда|wohin
+сейчас|jetzt
+когда|wann
+сколько|wie viel
+стоить|kosten

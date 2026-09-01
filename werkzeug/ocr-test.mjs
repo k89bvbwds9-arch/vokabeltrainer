@@ -13,16 +13,12 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { zuPaaren } from "../paare.js";
-import { MAX_BREITE, DUNKEL_AB } from "../bildwerte.js";
+import { MAX_BREITE, DUNKEL_AB, SEITENMODUS, SEITENMODUS_ERSATZ, MIN_ZEILEN } from "../bildwerte.js";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const WURZEL = path.resolve(HIER, "..");
 const HUERDE = 90;   // Prozent, laut Plan
 
-// 4 = eine Spalte mit wechselnden Schriftgroessen (Kartenliste)
-// 6 = ein einheitlicher Textblock
-// 3 = vollautomatisch
-const MODI = ["4"];
 const MODUS_NAME = { 4: "Spalte", 6: "Block", 3: "automatisch" };
 
 // --- Aufrufparameter ---
@@ -79,6 +75,33 @@ function zeilenAus(daten) {
   return raus;
 }
 
+/**
+ * Liest ein Bild - mit derselben Ausweichlogik wie die App: Findet der erste
+ * Seitenmodus auffaellig wenige Zeilen, bekommt der zweite eine Chance.
+ * Steht bewusst hier UND in erkennung.js; die Alternative waere ein gemeinsames
+ * Modul, das in Node und Browser verschiedene Tesseract-Bauarten kapseln
+ * muesste. Die Zahlen kommen aus bildwerte.js, damit nichts auseinanderlaeuft.
+ */
+async function liesMitAusweich(arbeiterQ, arbeiterZ, puffer) {
+  const lies = async (a, modus) => {
+    await a.setParameters({ tessedit_pageseg_mode: modus });
+    const e = await a.recognize(puffer, {}, { blocks: true, text: false });
+    return zeilenAus(e.data).map((z) => ({ text: z.text, conf: z.confidence, bbox: z.bbox }));
+  };
+  let quelle = await lies(arbeiterQ, SEITENMODUS);
+  let ziel = await lies(arbeiterZ, SEITENMODUS);
+  let modus = SEITENMODUS;
+
+  if (Math.min(quelle.length, ziel.length) < MIN_ZEILEN) {
+    const q2 = await lies(arbeiterQ, SEITENMODUS_ERSATZ);
+    const z2 = await lies(arbeiterZ, SEITENMODUS_ERSATZ);
+    if (Math.min(q2.length, z2.length) > Math.min(quelle.length, ziel.length)) {
+      quelle = q2; ziel = z2; modus = SEITENMODUS_ERSATZ;
+    }
+  }
+  return { quelle, ziel, modus };
+}
+
 async function baueArbeiter(sprache) {
   return createWorker([sprache], 1, {
     langPath: path.join(WURZEL, "sprachdaten"),
@@ -124,32 +147,22 @@ async function main() {
     const { puffer, dunkelmodus } = await vorverarbeite(bild);
     if (dunkelmodus) console.log("(als Dunkelmodus erkannt und umgedreht)");
 
-    for (const psm of MODI) {
-      await arbeiterQ.setParameters({ tessedit_pageseg_mode: psm });
-      await arbeiterZ.setParameters({ tessedit_pageseg_mode: psm });
+    const t0 = Date.now();
+    const { quelle, ziel, modus } = await liesMitAusweich(arbeiterQ, arbeiterZ, puffer);
+    const dauer = Date.now() - t0;
+    const { paare, unklar, verfahren } = zuPaaren({ quelle, ziel }, paar);
 
-      const t0 = Date.now();
-      const [ergQ, ergZ] = await Promise.all([
-        arbeiterQ.recognize(puffer, {}, { blocks: true, text: false }),
-        arbeiterZ.recognize(puffer, {}, { blocks: true, text: false }),
-      ]);
-      const dauer = Date.now() - t0;
+    console.log(`\n--- Modus ${modus} (${MODUS_NAME[modus]}) · ${dauer} ms · Verfahren "${verfahren}" ---`);
+    for (const p of paare) console.log(`   ${p.sicher ? " " : "?"} ${p.quelle}  |  ${p.ziel}`);
+    for (const u of unklar) console.log(`   ! ${u.quelle}   (${u.grund})`);
 
-      const hole = (e) => zeilenAus(e.data).map((z) => ({ text: z.text, conf: z.confidence, bbox: z.bbox }));
-      const { paare, unklar, verfahren } = zuPaaren({ quelle: hole(ergQ), ziel: hole(ergZ) }, paar);
-
-      console.log(`\n--- Modus ${psm} (${MODUS_NAME[psm]}) · ${dauer} ms · Verfahren "${verfahren}" ---`);
-      for (const p of paare) console.log(`   ${p.sicher ? " " : "?"} ${p.quelle}  |  ${p.ziel}`);
-      for (const u of unklar) console.log(`   ! ${u.quelle}   (${u.grund})`);
-
-      if (erwartet) {
-        const { treffer, gesamt, fehler, ueberzaehlig } = vergleiche(paare, erwartet);
-        const quote = Math.round((treffer / gesamt) * 100);
-        console.log(`   => ${treffer}/${gesamt} zeichengenau (${quote} %)`);
-        for (const f of fehler) console.log(`      FEHLT:      ${f}`);
-        for (const u of ueberzaehlig) console.log(`      ZUVIEL:     ${u.quelle} | ${u.ziel}`);
-        if (psm === "4") { summeTreffer += treffer; summeGesamt += gesamt; }
-      }
+    if (erwartet) {
+      const { treffer, gesamt, fehler, ueberzaehlig } = vergleiche(paare, erwartet);
+      const quote = Math.round((treffer / gesamt) * 100);
+      console.log(`   => ${treffer}/${gesamt} zeichengenau (${quote} %)`);
+      for (const f of fehler) console.log(`      FEHLT:      ${f}`);
+      for (const u of ueberzaehlig) console.log(`      ZUVIEL:     ${u.quelle} | ${u.ziel}`);
+      summeTreffer += treffer; summeGesamt += gesamt;
     }
   }
 
@@ -159,7 +172,7 @@ async function main() {
   if (summeGesamt) {
     const quote = Math.round((summeTreffer / summeGesamt) * 100);
     console.log("\n" + "=".repeat(72));
-    console.log(`GESAMT (Modus 4): ${summeTreffer}/${summeGesamt} = ${quote} %   ` +
+    console.log(`GESAMT: ${summeTreffer}/${summeGesamt} = ${quote} %   ` +
       `Hürde laut Plan: ${HUERDE} %   =>  ${quote >= HUERDE ? "BESTANDEN" : "DURCHGEFALLEN"}`);
     console.log("=".repeat(72));
     process.exit(quote >= HUERDE ? 0 : 1);

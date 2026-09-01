@@ -2,7 +2,7 @@ node_modules/
 .tesseract-cache/
 .DS_Store
 
-# Die eigenen Screenshots bleiben lokal - das Repo ist oeffentlich, und die
-# Bilder gehoeren Rene, nicht dem Projekt. Ohne sie laufen npm test und die
-# App vollstaendig; nur werkzeug/ocr-test.mjs braucht sie.
-testbilder/
+# Renes eigene Screenshots bleiben lokal - das Repo ist oeffentlich, und die
+# Bilder gehoeren ihm, nicht dem Projekt. Die selbst gebauten Attrappen kommen
+# dagegen mit, damit der Erkennungstest aus einem frischen Klon laeuft.
+testbilder/IMG_*

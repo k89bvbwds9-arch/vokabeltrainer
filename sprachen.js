@@ -24,6 +24,8 @@ export const SPRACHEN = [
   { kuerzel: "tur", name: "Türkisch",       stimme: "tr-TR" },
   { kuerzel: "ell", name: "Griechisch",     stimme: "el-GR" },
   { kuerzel: "ukr", name: "Ukrainisch",     stimme: "uk-UA" },
+  { kuerzel: "ara", name: "Arabisch",       stimme: "ar-SA" },
+  { kuerzel: "heb", name: "Hebräisch",      stimme: "he-IL" },
 ];
 
 const nachKuerzel = new Map(SPRACHEN.map((s) => [s.kuerzel, s]));
