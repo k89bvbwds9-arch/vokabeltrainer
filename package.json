@@ -1,0 +1,21 @@
+{
+  "name": "vokabeltrainer",
+  "version": "1.0.0",
+  "description": "Vokabeltrainer als PWA - laeuft vollstaendig im iPhone",
+  "main": "index.js",
+  "scripts": {
+    "test": "node werkzeug/lernen.test.mjs && node werkzeug/paare.test.mjs && node werkzeug/speicher.test.mjs",
+    "ocr": "node werkzeug/ocr-test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "tesseract.js": "^5.1.1"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.4"
+  },
+  "private": true
+}

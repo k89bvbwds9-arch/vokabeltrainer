@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: sonst bleibt unten der Streifen ueber der Home-Leiste
+     weiss. Die Abstaende holt app.css ueber safe-area-inset zurueck. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vokabeln">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)">
+<title>Vokabeltrainer</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="stylesheet" href="./app.css">
+</head>
+<body>
+
+<main id="schirme">
+
+  <!-- ================= Start ================= -->
+  <section class="schirm" data-schirm="start" hidden>
+    <header class="kopf">
+      <h1>Vokabeln</h1>
+      <p class="serie" id="serie"></p>
+    </header>
+
+    <div class="zahlen" id="startZahlen"></div>
+
+    <div class="mitte">
+      <button class="gross" id="btnLosgehts">Los geht’s</button>
+      <p class="hinweis" id="startHinweis"></p>
+      <button class="flach" id="btnFreiUeben" hidden>Frei üben, ohne Wertung</button>
+    </div>
+
+    <p class="warnung" id="sicherungsWarnung" hidden></p>
+  </section>
+
+  <!-- ================= Abfrage ================= -->
+  <section class="schirm abfrage" data-schirm="abfrage" hidden>
+    <header class="abfrageKopf">
+      <button class="schliessen" id="btnAbbrechen" aria-label="Runde beenden">✕</button>
+      <div class="fortschritt"><div id="fortschrittBalken"></div></div>
+      <span class="zaehler" id="abfrageZaehler"></span>
+    </header>
+
+    <div class="karte" id="karte">
+      <p class="richtungHinweis" id="richtungHinweis"></p>
+      <p class="frage" id="frage"></p>
+      <button class="lautsprecher" id="btnSprich" hidden aria-label="Vorlesen">🔊</button>
+      <hr class="trenner" id="trenner" hidden>
+      <p class="antwort" id="antwort" hidden></p>
+      <p class="tippHinweis" id="tippHinweis">Zum Aufdecken tippen</p>
+    </div>
+
+    <div class="bewertung" id="bewertung" hidden>
+      <button class="falsch" id="btnFalsch">Nicht gewusst</button>
+      <button class="richtig" id="btnRichtig">Gewusst</button>
+    </div>
+
+    <div class="fertig" id="rundeFertig" hidden>
+      <p class="fertigZahl" id="fertigZahl"></p>
+      <p class="fertigText" id="fertigText"></p>
+      <button class="gross" id="btnWeitereRunde">Weitere Runde</button>
+      <button class="flach" id="btnZurueckZumStart">Fertig für heute</button>
+    </div>
+  </section>
+
+  <!-- ================= Hinzufuegen ================= -->
+  <section class="schirm" data-schirm="hinzufuegen" hidden>
+    <header class="kopf"><h1>Hinzufügen</h1></header>
+
+    <div class="feldGruppe">
+      <label for="waehlQuelle">Sprache der Vokabel</label>
+      <div class="paarWahl">
+        <select id="waehlQuelle"></select>
+        <button class="tauschen" id="btnPaarTauschen" aria-label="Sprachen tauschen">⇄</button>
+        <select id="waehlZiel"></select>
+      </div>
+    </div>
+
+    <div class="aufnahme" id="aufnahmeBereich">
+      <input type="file" id="dateiWahl" accept="image/*" hidden>
+      <button class="gross" id="btnFotoWaehlen">Foto auswählen</button>
+      <button class="flach" id="btnVonHand">Von Hand eingeben</button>
+      <p class="hinweis">Fotografiere oder wähle einen Screenshot mit Vokabelpaaren.</p>
+    </div>
+
+    <div class="arbeit" id="arbeitBereich" hidden>
+      <div class="spinner"></div>
+      <p id="arbeitText"></p>
+    </div>
+
+    <div class="pruefung" id="pruefBereich" hidden>
+      <p class="pruefKopf" id="pruefKopf"></p>
+      <div id="pruefListe"></div>
+      <button class="flach" id="btnZeileDazu">+ Zeile hinzufügen</button>
+      <div class="pruefKnoepfe">
+        <button class="flach" id="btnPruefAbbrechen">Verwerfen</button>
+        <button class="gross" id="btnUebernehmen">Übernehmen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Vokabeln ================= -->
+  <section class="schirm" data-schirm="vokabeln" hidden>
+    <header class="kopf"><h1>Vokabeln</h1></header>
+
+    <input type="search" id="suche" placeholder="Suchen …" autocapitalize="off" autocorrect="off">
+    <p class="listenKopf" id="listenKopf"></p>
+    <div id="vokabelListe"></div>
+
+    <details class="einstellungen">
+      <summary>Einstellungen und Sicherung</summary>
+
+      <div class="feldGruppe">
+        <label for="waehlRunde">Vokabeln je Runde</label>
+        <select id="waehlRunde">
+          <option value="3">3</option><option value="5">5</option>
+          <option value="10">10</option><option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+
+      <div class="feldGruppe">
+        <p class="label">Sicherung</p>
+        <p class="hinweis" id="sicherungsStand"></p>
+        <div class="knopfReihe">
+          <button class="flach" id="btnSichern">Sichern</button>
+          <button class="flach" id="btnWiederherstellen">Wiederherstellen</button>
+        </div>
+        <input type="file" id="sicherungsWahl" accept="application/json,.json" hidden>
+      </div>
+
+      <div class="feldGruppe">
+        <p class="label">Fortschritt</p>
+        <div id="fortschrittZahlen"></div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<!-- ================= Fussleiste ================= -->
+<nav id="fussleiste">
+  <button data-ziel="start" class="aktiv"><span>▶</span>Lernen</button>
+  <button data-ziel="hinzufuegen"><span>＋</span>Hinzufügen</button>
+  <button data-ziel="vokabeln"><span>☰</span>Vokabeln</button>
+</nav>
+
+<div id="meldung" hidden></div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

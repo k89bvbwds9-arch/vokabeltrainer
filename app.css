@@ -1,0 +1,293 @@
+/* Oberflaeche des Vokabeltrainers.
+   Hell und dunkel nach Systemeinstellung, Abstaende ueber safe-area-inset,
+   damit unter der Home-Leiste und hinter der Dynamic Island nichts klemmt. */
+
+:root {
+  --grund: #ffffff;
+  --karte: #f2f2f7;
+  --karte2: #e9e9ef;
+  --schrift: #111214;
+  --schrift-leise: #6c6c74;
+  --linie: #dcdce3;
+  --ton: #5b34d6;
+  --ton-schrift: #ffffff;
+  --gut: #1e8f4e;
+  --schlecht: #c0392b;
+  --warn: #8a5a00;
+  --warn-grund: #fff5e0;
+  --rundung: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #111214;
+    --karte: #1e1f24;
+    --karte2: #2a2b31;
+    --schrift: #f2f2f5;
+    --schrift-leise: #9a9aa4;
+    --linie: #34353c;
+    --ton: #9b7bff;
+    --ton-schrift: #14121f;
+    --gut: #4ecb7d;
+    --schlecht: #ff6f61;
+    --warn: #ffcf70;
+    --warn-grund: #3a2f14;
+  }
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* Muss !important sein: Die Bildschirme setzen eigene display-Werte
+   (.abfrage ist ein Flex-Kasten), und die stechen die Vorgabe des Browsers
+   fuer [hidden] aus - alle vier Bildschirme waeren gleichzeitig sichtbar. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* Kein Gummiband-Scrollen der ganzen Seite - sonst wackelt beim Wischen
+     ueber eine Karte die gesamte Oberflaeche. */
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+#schirme { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+.schirm {
+  padding: 8px 20px 24px;
+  max-width: 640px;
+  margin: 0 auto;
+  animation: auf .18s ease-out;
+}
+@keyframes auf { from { opacity: 0; transform: translateY(6px); } }
+
+.kopf h1 { font-size: 30px; margin: 12px 0 4px; letter-spacing: -0.02em; }
+.serie { margin: 0 0 16px; color: var(--schrift-leise); font-size: 15px; }
+
+/* --- Knoepfe ----------------------------------------------------------- */
+button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+.gross {
+  width: 100%;
+  padding: 17px;
+  border-radius: var(--rundung);
+  background: var(--ton);
+  color: var(--ton-schrift);
+  font-weight: 600;
+  font-size: 18px;
+}
+.gross:active { opacity: .8; }
+.gross:disabled { opacity: .4; }
+
+.flach {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--rundung);
+  background: var(--karte);
+  color: var(--schrift);
+  font-size: 16px;
+  margin-top: 10px;
+}
+.flach:active { background: var(--karte2); }
+
+.knopfReihe { display: flex; gap: 10px; }
+.knopfReihe .flach { margin-top: 0; }
+
+/* --- Startbildschirm --------------------------------------------------- */
+.zahlen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0 28px; }
+.zahlKachel {
+  background: var(--karte);
+  border-radius: var(--rundung);
+  padding: 14px 10px;
+  text-align: center;
+}
+.zahlKachel b { display: block; font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+.zahlKachel span { font-size: 12px; color: var(--schrift-leise); }
+
+.mitte { margin-top: 8px; }
+.hinweis { color: var(--schrift-leise); font-size: 14px; margin: 12px 2px; }
+
+.warnung {
+  margin-top: 28px;
+  padding: 12px 14px;
+  border-radius: var(--rundung);
+  background: var(--warn-grund);
+  color: var(--warn);
+  font-size: 14px;
+}
+
+/* --- Abfrage ----------------------------------------------------------- */
+.abfrage { display: flex; flex-direction: column; min-height: calc(100vh - 140px); }
+
+.abfrageKopf { display: flex; align-items: center; gap: 12px; padding: 8px 0 20px; }
+.schliessen { font-size: 20px; color: var(--schrift-leise); padding: 4px 8px; }
+.fortschritt { flex: 1; height: 4px; background: var(--karte2); border-radius: 2px; overflow: hidden; }
+#fortschrittBalken { height: 100%; width: 0; background: var(--ton); transition: width .25s; }
+.zaehler { font-size: 14px; color: var(--schrift-leise); font-variant-numeric: tabular-nums; }
+
+.karte {
+  flex: 1;
+  background: var(--karte);
+  border-radius: 24px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  min-height: 300px;
+}
+.richtungHinweis { font-size: 12px; color: var(--schrift-leise); text-transform: uppercase;
+  letter-spacing: .08em; margin: 0 0 10px; }
+.frage { font-size: 30px; font-weight: 600; margin: 0; line-height: 1.25; }
+.antwort { font-size: 24px; margin: 0; color: var(--schrift); }
+.trenner { width: 48px; border: none; border-top: 1px solid var(--linie); margin: 18px 0; }
+.tippHinweis { font-size: 13px; color: var(--schrift-leise); margin: 22px 0 0; }
+.lautsprecher { font-size: 22px; margin-top: 14px; opacity: .65; }
+
+.bewertung { display: flex; gap: 12px; margin-top: 16px; }
+.bewertung button { flex: 1; padding: 18px; border-radius: var(--rundung); font-weight: 600; font-size: 17px; }
+.bewertung .richtig { background: var(--gut); color: #fff; }
+.bewertung .falsch { background: var(--karte); color: var(--schlecht); }
+
+.fertig { text-align: center; padding: 40px 0 0; }
+.fertigZahl { font-size: 40px; font-weight: 650; margin: 0; }
+.fertigText { color: var(--schrift-leise); margin: 8px 0 28px; }
+
+/* --- Hinzufuegen ------------------------------------------------------- */
+.feldGruppe { margin: 18px 0; }
+.feldGruppe label, .feldGruppe .label {
+  display: block; font-size: 13px; color: var(--schrift-leise); margin-bottom: 8px;
+}
+select, input[type="search"], input[type="text"] {
+  font: inherit;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--linie);
+  background: var(--karte);
+  color: var(--schrift);
+  -webkit-appearance: none;
+}
+input[type="search"] { margin-bottom: 12px; }
+
+.paarWahl { display: flex; align-items: center; gap: 8px; }
+.paarWahl select { flex: 1; min-width: 0; }
+.tauschen { font-size: 20px; padding: 10px; color: var(--ton); }
+
+.aufnahme { margin-top: 28px; }
+
+.arbeit { text-align: center; padding: 60px 0; color: var(--schrift-leise); }
+.spinner {
+  width: 30px; height: 30px; margin: 0 auto 18px;
+  border: 3px solid var(--karte2); border-top-color: var(--ton);
+  border-radius: 50%; animation: dreh .8s linear infinite;
+}
+@keyframes dreh { to { transform: rotate(360deg); } }
+
+/* --- Bestaetigungsbildschirm ------------------------------------------- */
+.pruefKopf { font-size: 14px; color: var(--schrift-leise); margin: 4px 0 14px; }
+
+.pruefZeile {
+  background: var(--karte);
+  border-radius: var(--rundung);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pruefZeile.unsicher { outline: 1.5px solid var(--warn); }
+.pruefZeile.doppelt { opacity: .55; }
+.pruefZeile input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--ton); flex: none; }
+.pruefFelder { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pruefFelder input {
+  border: none; background: transparent; padding: 3px 0; font: inherit; width: 100%;
+  border-bottom: 1px solid transparent; color: var(--schrift);
+}
+.pruefFelder input:focus { outline: none; border-bottom-color: var(--ton); }
+.pruefFelder input.quelle { font-weight: 600; }
+.pruefFelder input.ziel { color: var(--schrift-leise); }
+.pruefZeile .zeilenKnopf { font-size: 17px; color: var(--schrift-leise); padding: 6px; flex: none; }
+.marke { font-size: 11px; color: var(--warn); padding: 0 2px; }
+
+.pruefKnoepfe { display: flex; gap: 10px; margin-top: 20px; }
+.pruefKnoepfe .flach, .pruefKnoepfe .gross { margin-top: 0; flex: 1; }
+
+/* --- Vokabelliste ------------------------------------------------------ */
+.listenKopf { font-size: 13px; color: var(--schrift-leise); margin: 4px 2px 12px; }
+
+.vokabelZeile {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--linie);
+}
+.vokabelText { flex: 1; min-width: 0; }
+.vokabelText b { font-weight: 600; display: block; }
+.vokabelText span { color: var(--schrift-leise); font-size: 15px; }
+.stufenPunkte { display: flex; gap: 3px; flex: none; }
+.punkt { width: 6px; height: 6px; border-radius: 50%; background: var(--linie); }
+.punkt.voll { background: var(--gut); }
+.punkt.ruht { background: var(--ton); }
+.vokabelZeile .zeilenKnopf { font-size: 15px; color: var(--schrift-leise); padding: 6px 4px; }
+
+.vokabelZeile.wirdBearbeitet { background: var(--karte); border-radius: var(--rundung); padding: 10px 12px; }
+.vokabelZeile.wirdBearbeitet .pruefFelder { flex: 1; min-width: 0; }
+
+.einstellungen { margin-top: 32px; border-top: 1px solid var(--linie); padding-top: 12px; }
+.einstellungen summary { font-size: 15px; color: var(--schrift-leise); padding: 8px 2px; cursor: pointer; }
+
+.stufenBalken { display: flex; align-items: flex-end; gap: 6px; height: 70px; margin-top: 10px; }
+.stufenBalken div { flex: 1; background: var(--ton); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
+.stufenBalken div span { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center;
+  font-size: 10px; color: var(--schrift-leise); }
+.stufenBeschriftung { display: flex; gap: 6px; margin-top: 20px; font-size: 10px; color: var(--schrift-leise); }
+.stufenBeschriftung span { flex: 1; text-align: center; }
+
+/* --- Fussleiste -------------------------------------------------------- */
+#fussleiste {
+  display: flex;
+  border-top: 1px solid var(--linie);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--grund);
+  flex: none;
+}
+#fussleiste button {
+  flex: 1;
+  padding: 9px 0 7px;
+  font-size: 11px;
+  color: var(--schrift-leise);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+#fussleiste button span { font-size: 18px; line-height: 1; }
+#fussleiste button.aktiv { color: var(--ton); }
+body.abfrageLaeuft #fussleiste { display: none; }
+
+/* --- Kurzmeldung ------------------------------------------------------- */
+#meldung {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom) + 78px);
+  background: var(--schrift);
+  color: var(--grund);
+  padding: 11px 18px;
+  border-radius: 22px;
+  font-size: 15px;
+  max-width: 90%;
+  text-align: center;
+  z-index: 50;
+  animation: auf .2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

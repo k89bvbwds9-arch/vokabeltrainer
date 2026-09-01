@@ -1,0 +1,8 @@
+node_modules/
+.tesseract-cache/
+.DS_Store
+
+# Die eigenen Screenshots bleiben lokal - das Repo ist oeffentlich, und die
+# Bilder gehoeren Rene, nicht dem Projekt. Ohne sie laufen npm test und die
+# App vollstaendig; nur werkzeug/ocr-test.mjs braucht sie.
+testbilder/

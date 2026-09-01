@@ -1,0 +1,17 @@
+{
+  "name": "Vokabeltrainer",
+  "short_name": "Vokabeln",
+  "description": "Vokabeln aus Fotos lernen – alles auf dem Gerät",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#5b34d6",
+  "lang": "de",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512-maskierbar.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
