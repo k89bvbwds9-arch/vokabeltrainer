@@ -6,3 +6,8 @@ node_modules/
 # Bilder gehoeren ihm, nicht dem Projekt. Die selbst gebauten Attrappen kommen
 # dagegen mit, damit der Erkennungstest aus einem frischen Klon laeuft.
 testbilder/IMG_*
+
+# Die abfotografierte Lehrbuchseite und ihre Vergleichsliste bleiben ebenfalls
+# lokal: Das ist der Inhalt eines fremden Buches, und das Repo ist oeffentlich.
+# Der Erkennungstest dafuer laeuft also nur auf Renes Rechner.
+testbilder/italienisch-buch.*

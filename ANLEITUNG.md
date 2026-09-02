@@ -114,6 +114,12 @@ zugeordnet, sonst an den Zeilenabständen.
 Erkannt wird das an der Belegungsdichte über die Bildbreite: Zwei dichte
 Blöcke mit einem leeren Steg dazwischen. Getrennt wird in der Mitte des Stegs.
 
+Dabei ist wichtig, dass zuerst nach **Höhe** gruppiert wird. Tesseract zerlegt
+eine Buchseite je nach Bauart unterschiedlich: Auf dem Mac kommt eine Zeile je
+Tabellenzeile (`l'ingresso der Einstieg …`), auf dem iPhone kommen zwei – je
+Spalte eine. Wer verlangt, dass die *Zeilen* über beide Spalten reichen, hat
+auf dem einen Gerät eine funktionierende Erkennung und auf dem anderen Unsinn.
+
 Das Spaltenverfahren hat einen Vorteil, den keines der anderen hat: Die Sprache
 je Seite steht **fest** statt geraten zu werden. Die linke Hälfte wird deshalb
 vom Modell der Quellsprache gelesen, die rechte von dem der Zielsprache.
@@ -181,7 +187,7 @@ Ohne Browser, ohne Netz, in einer Sekunde:
 npm test
 ```
 
-79 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
+82 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
 gegen echt gemessene Erkennungswerte, Zusammenführen von Sicherungen.
 
 Der Erkennungstest braucht die eigenen Screenshots in `testbilder/` (die sind
@@ -205,7 +211,7 @@ node werkzeug/spalte-finden.mjs BILD ita    # Belegungsdichte, Steg
 node werkzeug/zellen.mjs BILD ita deu 795   # linke und rechte Zellenhälfte
 ```
 
-## Vier Fallen, die Zeit gekostet haben
+## Fünf Fallen, die Zeit gekostet haben
 
 Alle drei wurden gebaut, gemessen und wieder ausgebaut. Wer sie erneut
 einbauen will, sollte vorher `werkzeug/varianten.mjs` laufen lassen.
@@ -224,14 +230,22 @@ Quote auf 51 % — iPhone-Screenshots sind Display P3, das Canvas rechnet nach
 sRGB um. Heute geht das Bild unverändert an Tesseract, solange es nicht
 verkleinert oder umgedreht werden muss.
 
-**3. Wortfilter allein nach Konfidenz.** Beim Spaltenverfahren sollten Reste
+**3. Auf einem Gerät gemessen, auf einem anderen benutzt.** Die
+Spaltenerkennung war hier grün und lieferte auf dem iPhone Unsinn – weil
+Tesseract dort dieselbe Seite in getrennte Zeilen je Spalte zerlegt statt in
+eine gemeinsame. Sichtbar wurde es erst an einem Screenshot aus dem Betrieb.
+Seitdem nennt der Bestätigungsbildschirm, wie er das Bild gelesen hat
+(„nebeneinander“ / „untereinander“) – das steht dann im nächsten Screenshot
+und erspart drei Rückfragen.
+
+**4. Wortfilter allein nach Konfidenz.** Beim Spaltenverfahren sollten Reste
 der Nachbarseite („die Familie e>;“, „neu A“) verschwinden. Eine Schwelle von
 40 warf sie zuverlässig weg – zusammen mit `l'ingresso` (Konfidenz 29) und
 `l'appartamento` (38). Wörter mit Apostroph bekommen im italienischen Modell
 niedrige Werte, obwohl sie richtig gelesen sind. Es zählt **kurz UND unsicher**,
 nicht unsicher allein.
 
-**4. Fortsetzungszeilen.** Umbrochene Übersetzungen müssen angehängt werden
+**5. Fortsetzungszeilen.** Umbrochene Übersetzungen müssen angehängt werden
 („Entschuldigung, ich habe / nicht verstanden"), Knopfbeschriftungen nicht.
 Der erste Anlauf hängte auch weit entfernte Zeilen an und machte aus
 `друг | Freund` ein `друг | Freund Haus` — eine Vokabel verdorben, eine

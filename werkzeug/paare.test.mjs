@@ -3,7 +3,7 @@
 // vergleichen.mjs an testbilder/attrappe.png) und stehen hier als
 // Rueckfallsicherung: Der "Kyna"-Fall darf nie wieder unbemerkt durchgehen.
 import assert from "node:assert/strict";
-import { zuPaaren, schriftVon, schriftDerSprache, istRauschen, spaltenGrenze } from "../paare.js";
+import { zuPaaren, schriftVon, schriftDerSprache, istRauschen, spaltenAufteilung } from "../paare.js";
 
 let bestanden = 0;
 function pruefe(name, fn) {
@@ -296,6 +296,60 @@ pruefe("behaelt die einbuchstabige Vokabel \"e\"", () => {
   assert.ok(paare.some((p) => p.quelle === "e" && p.ziel === "und"));
 });
 
+console.log("\nZwei Spalten, egal wie Tesseract die Seite zerlegt");
+// AUS DEM BETRIEB: Auf dem Mac liefert Tesseract eine Zeile je Tabellenzeile,
+// auf dem iPhone zwei - je Spalte eine. Die erste Fassung verlangte, dass die
+// ZEILEN ueber beide Spalten reichen; auf dem iPhone war das nie erfuellt, die
+// Spaltenerkennung lehnte ab, und die Buchseite wurde zu Unsinn.
+const buchPaare = [["il nome", "der Name"], ["il cognome", "der Nachname"],
+  ["la via", "der Weg"], ["il palazzo", "das Wohnhaus"], ["la casa", "das Haus"],
+  ["il gatto", "die Katze"], ["la famiglia", "die Familie"], ["il numero", "die Zahl"]];
+
+const alsZeile = (y, worte) => ({
+  text: worte.map((w) => w.text).join(" "), conf: 92,
+  bbox: { x0: worte[0].bbox.x0, x1: worte[worte.length - 1].bbox.x1, y0: y, y1: y + 40 },
+  woerter: worte.map((w) => ({ ...w, bbox: { ...w.bbox, y0: y, y1: y + 40 } })),
+});
+const w2 = (text, x0) => wort(text, x0, text.length * 18);
+
+// Bauart Mac: beide Spalten in einer Zeile
+const EINE_ZEILE = buchPaare.map(([it, de], i) =>
+  alsZeile(200 + i * 100, [w2(it, 185), w2(de, 810)]));
+// Bauart iPhone: je Spalte eine eigene Zeile, gleiche Hoehe
+const ZWEI_ZEILEN = buchPaare.flatMap(([it, de], i) => [
+  alsZeile(200 + i * 100, [w2(it, 185)]),
+  alsZeile(200 + i * 100, [w2(de, 810)]),
+]);
+
+for (const [name, zeilen] of [["eine gemeinsame Zeile (Mac)", EINE_ZEILE],
+                              ["getrennte Zeilen je Spalte (iPhone)", ZWEI_ZEILEN]]) {
+  pruefe(`erkennt die Spalten bei Bauart "${name}"`, () => {
+    const erg = zuPaaren({ quelle: zeilen, ziel: zeilen.map((z) => ({ ...z })) },
+      { quelle: "ita", ziel: "deu" }, 1600);
+    assert.equal(erg.verfahren, "spalten");
+    assert.deepEqual(erg.paare.map((p) => `${p.quelle}|${p.ziel}`),
+      buchPaare.map(([it, de]) => `${it}|${de}`));
+  });
+}
+
+pruefe("zieht keine Woerter aus der Nachbarzeile herein", () => {
+  // GEMESSEN: Eine Zuordnung "innerhalb der Reihe plus Luft" konnte ein Wort
+  // mehreren Reihen zuschlagen - aus "grazie | danke" wurde
+  // "grazie | Angenehm!; danke das Vergnügen". Die Quote fiel von 94 auf 80 %.
+  const eng = [
+    alsZeile(200, [w2("grazie", 185), w2("danke", 810)]),
+    alsZeile(248, [w2("Piacere", 185), w2("Angenehm", 810)]),
+    alsZeile(296, [w2("sono", 185), w2("ich bin", 810)]),
+    alsZeile(344, [w2("la via", 185), w2("der Weg", 810)]),
+    alsZeile(392, [w2("il nome", 185), w2("der Name", 810)]),
+    alsZeile(440, [w2("la casa", 185), w2("das Haus", 810)]),
+  ];
+  const { paare } = zuPaaren({ quelle: eng, ziel: eng.map((z) => ({ ...z })) },
+    { quelle: "ita", ziel: "deu" }, 1600);
+  assert.equal(paare[0].ziel, "danke", `bekam "${paare[0].ziel}"`);
+  assert.equal(paare[1].ziel, "Angenehm");
+});
+
 console.log("\nSpaltenerkennung greift NUR bei zwei Spalten");
 pruefe("haelt eine untereinander stehende Liste nicht fuer zweispaltig", () => {
   // Die russischen Screenshots duerfen weiterhin ueber die Reihenfolge laufen.
@@ -306,11 +360,11 @@ pruefe("haelt eine untereinander stehende Liste nicht fuer zweispaltig", () => {
     untereinander.push({ text: "Wort", conf: 96, bbox: { x0: 100, x1: 350, y0: i * 200 + 70, y1: i * 200 + 110 },
       woerter: [wort("Wort", 100, 250)] });
   }
-  assert.equal(spaltenGrenze(untereinander, 1200), null);
+  assert.equal(spaltenAufteilung(untereinander, 1200), null);
 });
 pruefe("haelt auch die echten russischen Messwerte nicht fuer zweispaltig", () => {
   const alsZeilen = ECHT.quelle.map((z) => ({ ...z, woerter: [wort(z.text, z.bbox.x0, z.bbox.x1 - z.bbox.x0)] }));
-  assert.equal(spaltenGrenze(alsZeilen, 1170), null);
+  assert.equal(spaltenAufteilung(alsZeilen, 1170), null);
   assert.equal(zuPaaren(ECHT, { quelle: "rus", ziel: "deu" }, 1170).verfahren, "reihenfolge");
 });
 

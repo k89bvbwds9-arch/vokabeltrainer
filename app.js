@@ -23,6 +23,7 @@ const S = {
   frei: false,          // freies Ueben: veraendert den Merkstand nicht
   kategorie: null,      // welche Gruppe beim freien Ueben gewaehlt wurde
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
+  verfahren: null,      // wie das letzte Bild gelesen wurde
 };
 
 // --- Kurzmeldungen --------------------------------------------------------
@@ -299,7 +300,8 @@ async function verarbeiteFoto(datei) {
   try {
     const { erkenne } = await import("./erkennung.js");
     const durchlaeufe = await erkenne(datei, paar, (t) => { el("arbeitText").textContent = t; });
-    const { paare, unklar } = zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
+    const { paare, unklar, verfahren } = zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
+    S.verfahren = verfahren;
 
     S.vorschlaege = [
       ...paare.map((p) => ({ ...p, uebernehmen: true })),
@@ -338,10 +340,19 @@ function zeichnePruefung(paar) {
     .map((v) => `${v.quelle} ${v.ziel}`));
 
   const unsicher = S.vorschlaege.filter((v) => !v.sicher).length;
+
+  // Wie das Bild gelesen wurde, gehoert sichtbar auf den Bildschirm. Als bei
+  // einer Buchseite auf dem iPhone Unsinn herauskam, war die Frage "hat die
+  // Spaltenerkennung gegriffen?" nur ueber mehrere Rueckfragen zu klaeren -
+  // mit dieser Zeile steht die Antwort im Screenshot.
+  const gelesen = { spalten: "nebeneinander gelesen",
+    reihenfolge: "untereinander gelesen", abstand: "untereinander gelesen" };
+
   el("pruefKopf").textContent =
     `${S.vorschlaege.length} gefunden` +
     (unsicher ? ` · ${unsicher} unsicher, bitte prüfen` : "") +
-    ` · ${nameVon(paar.quelle)} → ${nameVon(paar.ziel)}`;
+    ` · ${nameVon(paar.quelle)} → ${nameVon(paar.ziel)}` +
+    (gelesen[S.verfahren] ? ` · ${gelesen[S.verfahren]}` : "");
 
   el("pruefListe").innerHTML = S.vorschlaege.map((v, i) => {
     const doppelt = bekannt.has(`${v.quelle} ${v.ziel}`);
@@ -555,6 +566,7 @@ function vonHandAnlegen() {
   const paar = gewaehltesPaar();
   if (paar.quelle === paar.ziel) { melde("Bitte zwei verschiedene Sprachen wählen."); return; }
   S.vorschlaege = [{ quelle: "", ziel: "", sicher: true, uebernehmen: true }];
+  S.verfahren = null;
   zeichnePruefung(paar);
   el("pruefListe").querySelector(".quelle")?.focus();
 }
