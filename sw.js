@@ -13,9 +13,12 @@
 //    minutenlang stillstehen, bevor ueberhaupt etwas zu sehen ist. Danach
 //    liegen sie dauerhaft im Zwischenspeicher - auch im Flugmodus.
 
-const FASSUNG = "v1";
-const SCHALE = `schale-${FASSUNG}`;
-const BROCKEN = `brocken-${FASSUNG}`;   // Tesseract und Sprachdaten
+// Zwei getrennte Nummern, und das ist wichtig: Die App aendert sich staendig,
+// Tesseract und die Sprachdaten nie. Haengte beides an derselben Nummer, wuerde
+// jede noch so kleine Korrektur die 10 MB Erkennungsdaten wegwerfen - und der
+// naechste Fotoversuch begaenne mit einem langen Download ueber Mobilfunk.
+const SCHALE = "schale-v2";
+const BROCKEN = "brocken-v1";   // Tesseract und Sprachdaten
 
 const SCHALEN_DATEIEN = [
   "./",
@@ -28,6 +31,7 @@ const SCHALEN_DATEIEN = [
   "./sprachen.js",
   "./erkennung.js",
   "./bildwerte.js",
+  "./fassung.js",
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",

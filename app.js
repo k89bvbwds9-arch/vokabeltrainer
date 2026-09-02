@@ -9,6 +9,7 @@ import * as speicher from "./speicher.js";
 import * as lernen from "./lernen.js";
 import { SPRACHEN, nameVon, paarName, sprich } from "./sprachen.js";
 import { zuPaaren } from "./paare.js";
+import { FASSUNG } from "./fassung.js";
 
 const el = (id) => document.getElementById(id);
 const alle = (w) => [...document.querySelectorAll(w)];
@@ -366,7 +367,8 @@ function zeichnePruefung(paar) {
       `Bild ${d.rohBreite}×${d.rohHoehe}${d.ueberCanvas ? ` → ${d.ocrBreite}` : " unverändert"} · ` +
       `Zeilen ${d.zeilenQ}/${d.zeilenZ} · Wörter ${d.worteQ}/${d.worteZ} · ` +
       `Reihen ${m.reihenAnzahl ?? "–"} · beidseitig ${prozent(m.beidseitigAnteil)} · ` +
-      (d.grenze ? `Steg ${Math.round(d.grenze)}` : "kein Steg");
+      (d.grenze ? `Steg ${Math.round(d.grenze)}` : "kein Steg") +
+      ` · Fassung ${FASSUNG}`;
   }
 
   el("pruefListe").innerHTML = S.vorschlaege.map((v, i) => {

@@ -430,6 +430,11 @@ const BEIDSEITIG_MINDESTENS = 0.35;
 // Reihen nicht - drei von acht sind 38 %, sagen aber nichts.
 const BEIDSEITIG_ANZAHL = 6;
 
+// Wie schwer ein quer laufendes Wort gegenueber einer getrennten Reihe wiegt.
+// Drei genuegt mit Abstand: An der Buchseite muesste es nur groesser als 0,17
+// sein, damit der echte Steg die Stelle mitten im Text schlaegt.
+const QUER_GEWICHT = 3;
+
 /** Zeilen auf gleicher Hoehe zu einer Reihe zusammenfassen. */
 function zuReihen(zeilen) {
   const sortiert = [...zeilen].sort((a, b) => a.bbox.y0 - b.bbox.y0);
@@ -496,24 +501,24 @@ export function spaltenAufteilung(zeilen, bildBreite) {
   for (let x = von; x <= bis; x += schritt) werte.push({ x, ...bewerte(x) });
   if (!werte.length) return { ok: false, reihenAnzahl: reihen.length };
 
-  // Die Reihenfolge der beiden Kriterien ist entscheidend, und beide Anlaeufe
-  // davor hatten sie falsch:
+  // Beide Kriterien zaehlen, und alle drei Anlaeufe davor hatten das falsch:
   //
-  //   Nur "wenigste Woerter quer"  -> auf Renes iPhone landete der Steg in
+  //   Nur "wenigste Woerter quer"      -> auf Renes iPhone landete der Steg in
   //     einem leeren Streifen am rechten Rand; nur 6 statt 84 Prozent der
   //     Reihen waren dort beidseitig belegt.
-  //   Nur "meiste beidseitig"      -> gemessen an der Buchseite liegt das
-  //     Hoechstmass (39 von 44) bei x=520 MITTEN im italienischen Text, wo
-  //     zwoelf Woerter quer laufen. Der echte Steg bei x=750 hat 37 - knapp
-  //     weniger, aber null quer.
+  //   Nur "meiste beidseitig"          -> an der Buchseite liegt das Hoechstmass
+  //     (39 von 44) bei x=520 MITTEN im italienischen Text, wo zwoelf Woerter
+  //     quer laufen. Der echte Steg bei x=750 hat 37, dafuer null quer.
+  //   "Erst quer, dann beidseitig"     -> ein hartes Ausschlusskriterium. Laeuft
+  //     ueber den echten Steg auch nur EIN Wort - eine Ueberschrift, ein
+  //     Schattenrest -, faellt er ganz aus der Auswahl, und der leere Streifen
+  //     gewinnt wieder.
   //
-  // Zuerst also die Stellen, ueber die KEIN Wort hinweglaeuft - das ist die
-  // Eigenschaft einer echten Spaltengrenze -, und unter diesen die, die am
-  // meisten Reihen trennt.
-  const wenigstenQuer = Math.min(...werte.map((w) => w.drueber));
-  const knapp = werte.filter((w) => w.drueber === wenigstenQuer);
-  const meisteBeidseitig = Math.max(...knapp.map((w) => w.beidseitig));
-  const bester = { drueber: wenigstenQuer, beidseitig: meisteBeidseitig };
+  // Richtig ist eine Verrechnung: Jede Reihe, die getrennt wird, zaehlt positiv;
+  // jedes Wort, das quer laeuft, zaehlt dreifach negativ. An der Buchseite
+  // ergibt das fuer x=750 den Wert 37 und fuer x=520 nur 39 - 3*12 = 3.
+  const bewertung = (w) => w.beidseitig - QUER_GEWICHT * w.drueber;
+  const bester = werte.reduce((a, b) => (bewertung(b) > bewertung(a) ? b : a));
 
   // Meist trennen viele Stellen gleich gut - naemlich der ganze Steg. Getrennt
   // wird in seiner MITTE: Dort ist der Abstand zu beiden Spalten am groessten,
@@ -521,8 +526,7 @@ export function spaltenAufteilung(zeilen, bildBreite) {
   // Grenze.
   let laufAnfang = -1, laengster = { laenge: 0, x: -1 };
   for (let i = 0; i <= werte.length; i++) {
-    const passt = i < werte.length &&
-      werte[i].beidseitig === bester.beidseitig && werte[i].drueber === bester.drueber;
+    const passt = i < werte.length && bewertung(werte[i]) === bewertung(bester);
     if (passt && laufAnfang < 0) laufAnfang = i;
     if (!passt && laufAnfang >= 0) {
       const laenge = i - laufAnfang;
