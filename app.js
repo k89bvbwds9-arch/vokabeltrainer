@@ -301,9 +301,10 @@ async function verarbeiteFoto(datei) {
   try {
     const { erkenne } = await import("./erkennung.js");
     const durchlaeufe = await erkenne(datei, paar, (t) => { el("arbeitText").textContent = t; });
-    const { paare, unklar, verfahren, grenze } = zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
+    const { paare, unklar, verfahren, grenze, messung } =
+      zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
     S.verfahren = verfahren;
-    S.diagnose = { ...durchlaeufe.diagnose, verfahren, grenze };
+    S.diagnose = { ...durchlaeufe.diagnose, verfahren, grenze, messung };
 
     S.vorschlaege = [
       ...paare.map((p) => ({ ...p, uebernehmen: true })),
@@ -359,10 +360,13 @@ function zeichnePruefung(paar) {
   const d = S.diagnose;
   el("pruefDiagnose").hidden = !d;
   if (d) {
+    const m = d.messung || {};
+    const prozent = (x) => (x == null ? "–" : `${Math.round(x * 100)} %`);
     el("pruefDiagnose").textContent =
       `Bild ${d.rohBreite}×${d.rohHoehe}${d.ueberCanvas ? ` → ${d.ocrBreite}` : " unverändert"} · ` +
-      `Zeilen ${d.zeilenQ}/${d.zeilenZ} · Wörter ${d.worteQ}/${d.worteZ}` +
-      (d.grenze ? ` · Steg ${Math.round(d.grenze)}` : " · kein Steg");
+      `Zeilen ${d.zeilenQ}/${d.zeilenZ} · Wörter ${d.worteQ}/${d.worteZ} · ` +
+      `Reihen ${m.reihenAnzahl ?? "–"} · beidseitig ${prozent(m.beidseitigAnteil)} · ` +
+      (d.grenze ? `Steg ${Math.round(d.grenze)}` : "kein Steg");
   }
 
   el("pruefListe").innerHTML = S.vorschlaege.map((v, i) => {

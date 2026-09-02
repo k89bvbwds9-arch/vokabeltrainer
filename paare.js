@@ -409,7 +409,25 @@ const STEG_HOECHSTENS = 0.12;
 // keine Tabelle, sondern eine einspaltige Liste. Dieser Wert ist die Sicherung
 // dafuer, dass die russischen Screenshots weiterhin ueber die Reihenfolge
 // zugeordnet werden.
-const BEIDSEITIG_MINDESTENS = 0.6;
+//
+// GEMESSEN (werkzeug/steg-pruefen.mjs):
+//   Buchseite, hier         37 von 44 Reihen = 84 %
+//   Screenshot IMG_3390      1 von 29 Reihen =  3 %
+//   Screenshot IMG_3382      0 von 29 Reihen =  0 %
+//
+// Der Abstand zwischen beiden Welten ist also riesig. Die erste Fassung setzte
+// 60 % - genau in die Mitte des Nichts. Auf Renes iPhone zerlegt Tesseract
+// dieselbe Buchseite in 104 statt 44 Textzeilen; die zusaetzlichen Bruchstuecke
+// sitzen in nur einer Spalte und druecken den Anteil unter 60 %. Die Erkennung
+// lehnte ab, und die Seite wurde zu Unsinn.
+//
+// 35 % hat immer noch den zehnfachen Abstand zu den einspaltigen Vorlagen und
+// verkraftet, dass auf einem Geraet ein Drittel mehr Bruchstuecke entsteht.
+const BEIDSEITIG_MINDESTENS = 0.35;
+
+// Zusaetzlich eine absolute Untergrenze: Ein Anteil allein traegt bei wenigen
+// Reihen nicht - drei von acht sind 38 %, sagen aber nichts.
+const BEIDSEITIG_ANZAHL = 6;
 
 /** Zeilen auf gleicher Hoehe zu einer Reihe zusammenfassen. */
 function zuReihen(zeilen) {
@@ -436,11 +454,11 @@ function zuReihen(zeilen) {
  */
 export function spaltenAufteilung(zeilen, bildBreite) {
   const reihen = zuReihen((zeilen || []).filter((z) => z.woerter?.length));
-  if (reihen.length < 5) return null;
+  if (reihen.length < 5) return { ok: false, reihenAnzahl: reihen.length };
 
   const schritt = 10;
   const felder = Math.ceil(bildBreite / schritt);
-  if (felder < 10) return null;
+  if (felder < 10) return { ok: false, reihenAnzahl: reihen.length };
   const belegung = new Array(felder).fill(0);
   for (const r of reihen) {
     const dabei = new Set();
@@ -456,8 +474,10 @@ export function spaltenAufteilung(zeilen, bildBreite) {
   const von = Math.floor(felder * 0.2), bis = Math.floor(felder * 0.8);
   let wenigste = Infinity;
   for (let i = von; i <= bis; i++) wenigste = Math.min(wenigste, belegung[i]);
-  if (!Number.isFinite(wenigste)) return null;
-  if (wenigste > reihen.length * STEG_HOECHSTENS) return null;
+  if (!Number.isFinite(wenigste)) return { ok: false, reihenAnzahl: reihen.length };
+  if (wenigste > reihen.length * STEG_HOECHSTENS) {
+    return { ok: false, reihenAnzahl: reihen.length, stegAnteil: wenigste / reihen.length };
+  }
 
   // Der Steg ist meist mehrere Felder breit. Getrennt wird in seiner MITTE:
   // Dort ist der Abstand zu beiden Spalten am groessten, und eine leicht
@@ -472,15 +492,24 @@ export function spaltenAufteilung(zeilen, bildBreite) {
       laufAnfang = -1;
     }
   }
-  if (bester.x < 0) return null;
+  if (bester.x < 0) return { ok: false, reihenAnzahl: reihen.length };
   const grenze = bester.x;
 
   const beidseitig = reihen.filter((r) =>
     r.woerter.some((w) => w.bbox.x1 <= grenze) &&
     r.woerter.some((w) => w.bbox.x0 >= grenze)).length;
-  if (beidseitig < reihen.length * BEIDSEITIG_MINDESTENS) return null;
 
-  return { grenze, reihen };
+  // Die Messwerte kommen IMMER zurueck, auch bei Ablehnung: Ohne sie war ein
+  // Fehler, der nur auf dem iPhone auftrat, nicht einzugrenzen.
+  const messung = {
+    grenze, reihenAnzahl: reihen.length,
+    stegAnteil: wenigste / reihen.length,
+    beidseitigAnteil: beidseitig / reihen.length,
+  };
+  if (beidseitig < BEIDSEITIG_ANZAHL) return { ...messung, ok: false };
+  if (beidseitig < reihen.length * BEIDSEITIG_MINDESTENS) return { ...messung, ok: false };
+
+  return { ...messung, ok: true, reihen };
 }
 
 /**
@@ -638,17 +667,18 @@ export function zuPaaren(durchlaeufe, paar, bildBreite = 0) {
   // danach waere nicht mehr erkennbar, was wohin gehoert.
   const breite = bildBreite
     || Math.max(0, ...(durchlaeufe.quelle || []).map((z) => z.bbox.x1)) + 40;
-  const aufteilung = spaltenAufteilung(durchlaeufe.quelle, breite);
+  const aufteilung = spaltenAufteilung(durchlaeufe.quelle, breite) || { ok: false };
 
-  if (aufteilung) {
+  if (aufteilung.ok) {
     return {
       ...paareNachSpalten(aufteilung.reihen, durchlaeufe.ziel, aufteilung.grenze),
-      verfahren: "spalten", grenze: aufteilung.grenze,
+      verfahren: "spalten", grenze: aufteilung.grenze, messung: aufteilung,
     };
   }
 
   const zeilen = bestimmeSprache(verschmelze(durchlaeufe.quelle, durchlaeufe.ziel));
   const gleicheSchrift = schriftDerSprache(paar.quelle) === schriftDerSprache(paar.ziel);
   const ergebnis = gleicheSchrift ? paareNachAbstand(zeilen) : paareNachReihenfolge(zeilen);
-  return { ...ergebnis, verfahren: gleicheSchrift ? "abstand" : "reihenfolge", zeilen };
+  return { ...ergebnis, verfahren: gleicheSchrift ? "abstand" : "reihenfolge",
+    zeilen, messung: aufteilung };
 }

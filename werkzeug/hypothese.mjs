@@ -26,7 +26,7 @@ const fallB = PAARE.flatMap(([it, de], i) => [
 
 for (const [name, zeilen] of [["Fall A: eine gemeinsame Zeile", fallA],
                               ["Fall B: getrennte Zeilen je Spalte", fallB]]) {
-  const grenze = spaltenAufteilung(zeilen, 1600)?.grenze;
+  const a = spaltenAufteilung(zeilen, 1600); const grenze = a?.ok ? a.grenze : null;
   const erg = zuPaaren({ quelle: zeilen, ziel: zeilen.map((z) => ({ ...z })) },
     { quelle: "ita", ziel: "deu" }, 1600);
   console.log(`\n${name}`);

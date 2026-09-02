@@ -350,6 +350,24 @@ pruefe("zieht keine Woerter aus der Nachbarzeile herein", () => {
   assert.equal(paare[1].ziel, "Angenehm");
 });
 
+pruefe("lehnt ab, wenn nur eine Handvoll Reihen beidseitig belegt ist", () => {
+  // Ein Anteil allein traegt bei wenigen Reihen nicht: drei von acht sind
+  // 38 %, sagen aber nichts. Deshalb zusaetzlich eine absolute Untergrenze.
+  const wenige = [
+    ...buchPaare.slice(0, 3).map(([it, de], i) => alsZeile(200 + i * 100, [w2(it, 185), w2(de, 810)])),
+    ...buchPaare.slice(3, 8).map(([it], i) => alsZeile(500 + i * 100, [w2(it, 185)])),
+  ];
+  const erg = zuPaaren({ quelle: wenige, ziel: wenige.map((z) => ({ ...z })) },
+    { quelle: "ita", ziel: "deu" }, 1600);
+  assert.notEqual(erg.verfahren, "spalten");
+});
+pruefe("gibt die Messwerte auch bei Ablehnung zurueck", () => {
+  // Ohne sie war ein Fehler, der nur auf dem iPhone auftrat, nicht einzugrenzen.
+  const erg = zuPaaren(ECHT, { quelle: "rus", ziel: "deu" }, 1170);
+  assert.ok(erg.messung, "die Messung fehlt");
+  assert.equal(erg.messung.ok, false);
+});
+
 console.log("\nSpaltenerkennung greift NUR bei zwei Spalten");
 pruefe("haelt eine untereinander stehende Liste nicht fuer zweispaltig", () => {
   // Die russischen Screenshots duerfen weiterhin ueber die Reihenfolge laufen.
@@ -360,11 +378,11 @@ pruefe("haelt eine untereinander stehende Liste nicht fuer zweispaltig", () => {
     untereinander.push({ text: "Wort", conf: 96, bbox: { x0: 100, x1: 350, y0: i * 200 + 70, y1: i * 200 + 110 },
       woerter: [wort("Wort", 100, 250)] });
   }
-  assert.equal(spaltenAufteilung(untereinander, 1200), null);
+  assert.equal(spaltenAufteilung(untereinander, 1200).ok, false);
 });
 pruefe("haelt auch die echten russischen Messwerte nicht fuer zweispaltig", () => {
   const alsZeilen = ECHT.quelle.map((z) => ({ ...z, woerter: [wort(z.text, z.bbox.x0, z.bbox.x1 - z.bbox.x0)] }));
-  assert.equal(spaltenAufteilung(alsZeilen, 1170), null);
+  assert.equal(spaltenAufteilung(alsZeilen, 1170).ok, false);
   assert.equal(zuPaaren(ECHT, { quelle: "rus", ziel: "deu" }, 1170).verfahren, "reihenfolge");
 });
 

@@ -187,7 +187,7 @@ Ohne Browser, ohne Netz, in einer Sekunde:
 npm test
 ```
 
-82 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
+84 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
 gegen echt gemessene Erkennungswerte, Zusammenführen von Sicherungen.
 
 Der Erkennungstest braucht die eigenen Screenshots in `testbilder/` (die sind
@@ -208,6 +208,7 @@ schrittweise zur Ursache:
 node werkzeug/rohzeilen.mjs BILD ita        # was Tesseract überhaupt sieht
 node werkzeug/woerter.mjs BILD ita          # Wortlücken je Zeile
 node werkzeug/spalte-finden.mjs BILD ita    # Belegungsdichte, Steg
+node werkzeug/steg-pruefen.mjs BILD ita     # wie knapp an den Schwellen?
 node werkzeug/zellen.mjs BILD ita deu 795   # linke und rechte Zellenhälfte
 ```
 
