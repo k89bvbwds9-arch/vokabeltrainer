@@ -361,6 +361,13 @@ tab.setStyle(TableStyle([
 A(tab)
 
 A(Spacer(1, 3 * mm))
+A(Paragraph("Mehrere Sprachen nebeneinander", S["abschnitt"]))
+A(Paragraph("Führst du mehr als ein Sprachpaar, fragt die App beim Start einer Runde zuerst, "
+            "welche Sprachen drankommen sollen — mit den Anzahlen daneben. Du kannst also "
+            "gezielt nur Italienisch üben und das Russische ruhen lassen. Bei nur einer Sprache "
+            "entfällt die Frage.", S["text"]))
+
+A(Spacer(1, 2 * mm))
 A(Paragraph("Einfach so üben, ohne dass es zählt", S["abschnitt"]))
 A(Paragraph("Unter <b>Frei üben, ohne Wertung</b> suchst du dir aus, was du durchgehen willst: "
             "alles, nur die zuletzt nicht gewussten, oder gezielt eine der Abstandsgruppen. "

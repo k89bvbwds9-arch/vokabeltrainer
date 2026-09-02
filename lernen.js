@@ -168,6 +168,46 @@ export function mischen(liste) {
   return a;
 }
 
+// --- Sprachpaare ----------------------------------------------------------
+/**
+ * Karten der gewaehlten Sprachpaare.
+ *
+ * Die Karte selbst kennt ihr Sprachpaar nicht - sie haengt an einer Vokabel,
+ * und die traegt die paarId. Deshalb braucht es hier den ganzen Bestand und
+ * nicht nur die Kartenliste.
+ *
+ * Leere oder unbekannte Auswahl heisst "alles": Wer ein Sprachpaar loescht,
+ * dessen Auswahl noch gespeichert war, soll nicht vor einem leeren
+ * Lernbildschirm stehen.
+ */
+export function kartenDerPaare(zustand, paarIds) {
+  const karten = zustand.karten || [];
+  const vokabeln = zustand.vokabeln || [];
+  if (!paarIds?.length) return karten;
+
+  const erlaubt = new Set(paarIds);
+  const vorhanden = new Set((zustand.sprachpaare || []).map((p) => p.id));
+  if (![...erlaubt].some((id) => vorhanden.has(id))) return karten;
+
+  const paarVon = new Map(vokabeln.map((v) => [v.id, v.paarId]));
+  return karten.filter((k) => erlaubt.has(paarVon.get(k.vokabelId)));
+}
+
+/** Je Sprachpaar: wie viel ist da, wie viel ist faellig? */
+export function paarStatistik(zustand, tag = heute()) {
+  return (zustand.sprachpaare || []).map((paar) => {
+    const karten = kartenDerPaare(zustand, [paar.id]);
+    return {
+      id: paar.id,
+      name: paar.name,
+      karten: karten.length,
+      vokabeln: (zustand.vokabeln || []).filter((v) => v.paarId === paar.id).length,
+      faellig: karten.filter((k) => k.faellig && k.faellig <= tag).length,
+      neu: karten.filter((k) => !k.faellig).length,
+    };
+  }).filter((p) => p.karten > 0);
+}
+
 // --- Freies Ueben ---------------------------------------------------------
 /**
  * Beim freien Ueben zaehlt der Merkstand nicht - deshalb darf man sich

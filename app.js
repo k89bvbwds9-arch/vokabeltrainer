@@ -23,6 +23,7 @@ const S = {
   richtigInRunde: 0,
   frei: false,          // freies Ueben: veraendert den Merkstand nicht
   kategorie: null,      // welche Gruppe beim freien Ueben gewaehlt wurde
+  wahlZiel: null,       // wohin die Sprachauswahl fuehrt: "runde" oder "frei"
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
   verfahren: null,      // wie das letzte Bild gelesen wurde
   diagnose: null,       // nackte Zahlen des letzten Durchlaufs
@@ -47,7 +48,11 @@ function zeige(name) {
   document.body.classList.toggle("abfrageLaeuft", name === "abfrage");
   el("schirme").scrollTop = 0;
 
-  if (name === "start") zeichneStart();
+  if (name === "start") {
+    el("sprachWahl").hidden = true;
+    el("freiWahl").hidden = true;
+    zeichneStart();
+  }
   if (name === "vokabeln") zeichneVokabeln();
 }
 
@@ -66,16 +71,16 @@ function zeichneStart() {
     ["Vokabeln", s.vokabeln],
   ].map(([b, w]) => `<div class="zahlKachel"><b>${w}</b><span>${b}</span></div>`).join("");
 
-  const offen = lernen.offeneAnzahl(zustand.karten);
+  const offen = lernen.offeneAnzahl(gewaehlteKarten());
   const groesse = zustand.einstellungen.rundenGroesse;
 
   el("btnLosgehts").disabled = offen === 0;
   // Freies Ueben steht immer zur Verfuegung, sobald ueberhaupt etwas gelernt
   // wurde - nicht nur, wenn nichts mehr faellig ist. Rene wollte "zwischendurch
   // mal etwas tun koennen", und das kollidiert nicht mit der richtigen Runde.
-  el("btnFreiUeben").hidden = !zustand.karten.some((k) => k.faellig);
+  el("btnFreiUeben").hidden = !gewaehlteKarten().some((k) => k.faellig);
   if (el("btnFreiUeben").hidden) { el("freiWahl").hidden = true; }
-  else zeichneFreieKategorien(zustand);
+  else zeichneFreieKategorien();
 
   if (zustand.karten.length === 0) {
     el("startHinweis").textContent = "Noch keine Vokabeln. Leg über „Hinzufügen“ los.";
@@ -94,12 +99,61 @@ function zeichneStart() {
  * Fortschrittsbalken. Wer dort sieht, dass 40 Karten auf "Anfang" stehen,
  * will meist genau diese 40 durchgehen.
  */
-function zeichneFreieKategorien(zustand) {
-  el("freiListe").innerHTML = lernen.freieKategorien(zustand.karten).map((k) => `
+function zeichneFreieKategorien() {
+  el("freiListe").innerHTML = lernen.freieKategorien(gewaehlteKarten()).map((k) => `
     <button class="freiZeile" data-kategorie="${k.schluessel}" ${k.anzahl ? "" : "disabled"}>
       <span class="freiText"><b>${k.name}</b><span>${k.hinweis}</span></span>
       <span class="freiAnzahl">${k.anzahl}</span>
     </button>`).join("");
+}
+
+/**
+ * Die Sprachauswahl vor dem Lernen. Erscheint nur, wenn es ueberhaupt mehr als
+ * ein Sprachpaar gibt - sonst waere sie ein Klick ohne Entscheidung.
+ */
+function zeichneSprachwahl() {
+  const zustand = speicher.hole();
+  const paare = lernen.paarStatistik(zustand);
+  const gewaehlt = new Set(zustand.einstellungen.gewaehltePaare || paare.map((p) => p.id));
+
+  el("sprachWahlKopf").textContent = S.wahlZiel === "frei"
+    ? "Welche Sprachen möchtest du frei üben?"
+    : "Welche Sprachen möchtest du lernen?";
+
+  el("sprachListe").innerHTML = paare.map((p) => `
+    <label class="sprachZeile">
+      <input type="checkbox" value="${p.id}" ${gewaehlt.has(p.id) ? "checked" : ""}>
+      <span class="sprachText"><b>${schuetze(p.name)}</b>
+        <span>${p.vokabeln} Vokabeln · ${p.faellig} fällig${p.neu ? ` · ${p.neu} neu` : ""}</span>
+      </span>
+    </label>`).join("");
+}
+
+/** Fuehrt die Sprachauswahl vor, falls es mehr als ein Paar gibt. */
+function frageSprachen(ziel, weiter) {
+  const paare = lernen.paarStatistik(speicher.hole());
+  if (paare.length <= 1) { weiter(); return; }
+  S.wahlZiel = ziel;
+  el("freiWahl").hidden = true;
+  zeichneSprachwahl();
+  el("sprachWahl").hidden = false;
+  el("sprachWahl").scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+async function uebernimmSprachwahl() {
+  const gewaehlt = alle("#sprachListe input:checked").map((e) => e.value);
+  if (!gewaehlt.length) { melde("Bitte mindestens eine Sprache auswählen."); return; }
+
+  await speicher.aendere((z) => { z.einstellungen.gewaehltePaare = gewaehlt; return z; });
+  el("sprachWahl").hidden = true;
+
+  if (S.wahlZiel === "frei") {
+    zeichneFreieKategorien();
+    el("freiWahl").hidden = false;
+  } else {
+    zeichneStart();
+    starteRunde();
+  }
 }
 
 function zeigeSicherungsWarnung(zustand) {
@@ -133,10 +187,10 @@ function starteRunde({ frei = false, kategorie = null } = {}) {
     // Freies Ueben laesst den Merkstand in Ruhe - sonst wuerde Ueben den
     // Kalender durcheinanderbringen.
     S.runde = lernen.stelleFreieRundeZusammen(
-      lernen.kartenDerKategorie(zustand.karten, kategorie || "alle"),
+      lernen.kartenDerKategorie(gewaehlteKarten(), kategorie || "alle"),
       { anzahl: zustand.einstellungen.rundenGroesse });
   } else {
-    S.runde = lernen.stelleRundeZusammen(zustand.karten,
+    S.runde = lernen.stelleRundeZusammen(gewaehlteKarten(),
       { anzahl: zustand.einstellungen.rundenGroesse });
   }
 
@@ -149,6 +203,19 @@ function starteRunde({ frei = false, kategorie = null } = {}) {
 function kategorieName(schluessel) {
   const treffer = lernen.freieKategorien().find((k) => k.schluessel === schluessel);
   return treffer ? treffer.name : "Alle";
+}
+
+/**
+ * Die Karten, die gerade gelernt werden sollen - gefiltert nach den gewaehlten
+ * Sprachpaaren.
+ *
+ * Wer Russisch und Italienisch parallel fuehrt, will nicht immer beides
+ * gemischt. Die Auswahl bleibt gespeichert, damit sie nicht bei jeder Runde
+ * neu getroffen werden muss.
+ */
+function gewaehlteKarten() {
+  const zustand = speicher.hole();
+  return lernen.kartenDerPaare(zustand, zustand.einstellungen.gewaehltePaare);
 }
 
 function vokabelZu(karte) {
@@ -249,12 +316,12 @@ function zeigeRundenEnde() {
   el("fertigZahl").textContent = `${S.richtigInRunde} von ${gestellt}`;
 
   if (S.frei) {
-    const vorrat = lernen.kartenDerKategorie(speicher.hole().karten, S.kategorie || "alle").length;
+    const vorrat = lernen.kartenDerKategorie(gewaehlteKarten(), S.kategorie || "alle").length;
     el("fertigText").textContent =
       `Freies Üben · ${kategorieName(S.kategorie)} – der Merkstand bleibt unverändert.`;
     el("btnWeitereRunde").hidden = vorrat <= gestellt;
   } else {
-    const offen = lernen.offeneAnzahl(speicher.hole().karten);
+    const offen = lernen.offeneAnzahl(gewaehlteKarten());
     el("fertigText").textContent = offen > 0
       ? `Noch ${offen} ${offen === 1 ? "Karte ist" : "Karten sind"} offen.`
       : "Alles erledigt für heute.";
@@ -703,12 +770,17 @@ function verdrahte() {
   alle("#fussleiste button").forEach((b) =>
     b.addEventListener("click", () => zeige(b.dataset.ziel)));
 
-  el("btnLosgehts").addEventListener("click", () => starteRunde());
+  el("btnLosgehts").addEventListener("click", () => frageSprachen("runde", () => starteRunde()));
   el("btnFreiUeben").addEventListener("click", () => {
-    const kasten = el("freiWahl");
-    kasten.hidden = !kasten.hidden;
-    if (!kasten.hidden) kasten.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (!el("freiWahl").hidden) { el("freiWahl").hidden = true; return; }
+    frageSprachen("frei", () => {
+      zeichneFreieKategorien();
+      el("freiWahl").hidden = false;
+      el("freiWahl").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
   });
+  el("btnSprachWeiter").addEventListener("click", uebernimmSprachwahl);
+  el("btnSprachAbbrechen").addEventListener("click", () => { el("sprachWahl").hidden = true; });
   el("freiListe").addEventListener("click", (e) => {
     const knopf = e.target.closest("[data-kategorie]");
     if (knopf) starteRunde({ frei: true, kategorie: knopf.dataset.kategorie });

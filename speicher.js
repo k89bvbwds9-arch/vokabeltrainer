@@ -23,7 +23,10 @@ export const LEERER_ZUSTAND = {
   sprachpaare: [],
   vokabeln: [],
   karten: [],
-  einstellungen: { rundenGroesse: 5, letzteSicherung: null, letztesPaar: null },
+  einstellungen: {
+    rundenGroesse: 5, letzteSicherung: null, letztesPaar: null,
+    gewaehltePaare: null,   // welche Sprachpaare gelernt werden; null heisst alle
+  },
 };
 
 let db = null;

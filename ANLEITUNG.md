@@ -57,9 +57,18 @@ und kommt nur noch alle vier Monate zur Kontrolle. Nicht gewusst wirft sie auf
 Anfang zurück, sie ist morgen wieder dran — und kommt einmal ans Ende der
 laufenden Runde.
 
+### Sprachen auswählen
+
+Wer mehrere Sprachpaare führt, wird beim Tippen auf **Los geht's** oder **Frei
+üben** zuerst gefragt, welche gelernt werden sollen — mit den Anzahlen je Paar
+(Vokabeln, fällig, neu). Die Auswahl bleibt gespeichert.
+
+Gibt es nur ein Sprachpaar, entfällt die Frage: Sie wäre ein Klick ohne
+Entscheidung.
+
 ### Freies Üben
 
-„Frei üben, ohne Wertung" fragt nach der Gruppe: **Alle**, **Anfang**, die
+„Frei üben, ohne Wertung" fragt — nach den Sprachen — nach der Gruppe: **Alle**, **Anfang**, die
 fünf Abstände oder der **Ruhestand** — dieselbe Einteilung wie die
 Fortschrittsbalken, mit den Anzahlen daneben. Leere Gruppen sind gesperrt.
 

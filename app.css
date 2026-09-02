@@ -124,6 +124,26 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-size: 14px;
 }
 
+.wahlKasten { margin-top: 14px; }
+.wahlKasten .knopfReihe { margin-top: 12px; }
+.wahlKasten .knopfReihe .gross { padding: 13px; font-size: 16px; }
+
+.sprachZeile {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: var(--rundung);
+  background: var(--karte);
+  text-align: left;
+}
+.sprachZeile input[type="checkbox"] {
+  width: 22px; height: 22px; accent-color: var(--ton); flex: none;
+}
+.sprachZeile .sprachText { flex: 1; min-width: 0; }
+.sprachZeile .sprachText b { font-weight: 600; display: block; }
+.sprachZeile .sprachText span { font-size: 12px; color: var(--schrift-leise); }
+
 .freiWahl { margin-top: 14px; }
 .freiZeile {
   display: flex; align-items: center; gap: 12px;

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { INTERVALLE, RUHE_TAGE, plusTage, tageZwischen, neueKarte, bewerte,
   stelleRundeZusammen, offeneAnzahl, haengeAn, statistik, heute,
   aktuellerAbstand, mischen, freieKategorien, kartenDerKategorie,
-  stelleFreieRundeZusammen } from "../lernen.js";
+  stelleFreieRundeZusammen, kartenDerPaare, paarStatistik } from "../lernen.js";
 
 let bestanden = 0;
 function pruefe(name, fn) {
@@ -379,6 +379,62 @@ pruefe("die freie Runde ist begrenzt, gemischt und ohne Geschwister", () => {
 });
 pruefe("eine leere Kategorie ergibt eine leere Runde", () => {
   assert.equal(stelleFreieRundeZusammen(kartenDerKategorie(RENES_STAND, "ruhend"), { anzahl: 5 }).length, 0);
+});
+
+console.log("\nNach Sprachpaar auswaehlen");
+
+const ZWEISPRACHIG = {
+  sprachpaare: [
+    { id: "rus-deu", name: "Russisch – Deutsch" },
+    { id: "ita-deu", name: "Italienisch – Deutsch" },
+  ],
+  vokabeln: [
+    { id: "r1", paarId: "rus-deu" }, { id: "r2", paarId: "rus-deu" }, { id: "r3", paarId: "rus-deu" },
+    { id: "i1", paarId: "ita-deu" }, { id: "i2", paarId: "ita-deu" },
+  ],
+  karten: [
+    { ...K("kr1", "r1", T0), stufe: 1 }, { ...K("kr2", "r2", T0), stufe: 1 },
+    K("kr3", "r3"),                                   // neu, noch nie abgefragt
+    { ...K("ki1", "i1", T0), stufe: 2 }, K("ki2", "i2"),
+  ],
+  einstellungen: { rundenGroesse: 5 },
+};
+
+pruefe("liefert nur die Karten des gewaehlten Paares", () => {
+  assert.equal(kartenDerPaare(ZWEISPRACHIG, ["rus-deu"]).length, 3);
+  assert.equal(kartenDerPaare(ZWEISPRACHIG, ["ita-deu"]).length, 2);
+  assert.equal(kartenDerPaare(ZWEISPRACHIG, ["rus-deu", "ita-deu"]).length, 5);
+});
+pruefe("ohne Auswahl kommt alles", () => {
+  assert.equal(kartenDerPaare(ZWEISPRACHIG, null).length, 5);
+  assert.equal(kartenDerPaare(ZWEISPRACHIG, []).length, 5);
+});
+pruefe("eine Auswahl auf geloeschte Paare sperrt nicht aus", () => {
+  // Wer ein Sprachpaar loescht, dessen Auswahl gespeichert war, soll nicht vor
+  // einem leeren Lernbildschirm stehen.
+  assert.equal(kartenDerPaare(ZWEISPRACHIG, ["weg-deu"]).length, 5);
+});
+pruefe("zaehlt je Sprachpaar getrennt", () => {
+  const s = paarStatistik(ZWEISPRACHIG, T0);
+  const rus = s.find((p) => p.id === "rus-deu");
+  const ita = s.find((p) => p.id === "ita-deu");
+  assert.equal(rus.vokabeln, 3);
+  assert.equal(rus.faellig, 2);
+  assert.equal(rus.neu, 1);
+  assert.equal(ita.vokabeln, 2);
+  assert.equal(ita.faellig, 1);
+  assert.equal(ita.neu, 1);
+});
+pruefe("nennt keine Sprachpaare ohne Karten", () => {
+  const mitLeerem = { ...ZWEISPRACHIG,
+    sprachpaare: [...ZWEISPRACHIG.sprachpaare, { id: "fra-deu", name: "Französisch – Deutsch" }] };
+  assert.equal(paarStatistik(mitLeerem, T0).length, 2);
+});
+pruefe("die Runde bleibt beim gewaehlten Sprachpaar", () => {
+  const nurItalienisch = kartenDerPaare(ZWEISPRACHIG, ["ita-deu"]);
+  const runde = stelleRundeZusammen(nurItalienisch, { anzahl: 5, tag: T0 });
+  assert.equal(runde.length, 2);
+  assert.ok(runde.every((k) => k.id.startsWith("ki")));
 });
 
 console.log(`\n${bestanden} Pruefungen bestanden` +
