@@ -427,16 +427,25 @@ function zeichneFortschritt(zustand) {
     return;
   }
 
-  const hoechster = Math.max(1, ...s.proStufe);
+  const hoechster = Math.max(1, ...s.proStufe.map((b) => b.anzahl));
   el("fortschrittZahlen").innerHTML = `
     <p class="label">Fortschritt</p>
     <p class="hinweis">${s.inArbeit} in Arbeit · ${s.neu} noch nie abgefragt · ${s.ruhend} im Ruhestand</p>
     <div class="stufenBalken">
-      ${s.proStufe.map((n) => `<div style="height:${(n / hoechster) * 100}%"><span>${n}</span></div>`).join("")}
+      ${s.proStufe.map((b) =>
+        `<div style="height:${(b.anzahl / hoechster) * 100}%"><span>${b.anzahl}</span></div>`).join("")}
     </div>
     <div class="stufenBeschriftung">
-      ${lernen.INTERVALLE.map((t) => `<span>${t} T.</span>`).join("")}
-    </div>`;
+      ${s.proStufe.map((b) =>
+        // Stufe 0 und Stufe 1 haben beide einen Tag Abstand, meinen aber
+        // Verschiedenes: einmal zurueckgeworfen, einmal zum ersten Mal
+        // gewusst. Zwei Balken mit derselben Beschriftung waeren ein Raetsel.
+        `<span>${b.stufe === 0 ? "Anfang" : `${b.abstand}&nbsp;T.`}</span>`).join("")}
+    </div>
+    <p class="hinweis">Die Balken zeigen, in welchem Abstand eine Vokabel gerade
+      wiederkommt – nicht, wann sie das nächste Mal dran ist. Eine Vokabel, die
+      du gestern zum ersten Mal konntest, steht auf 1&nbsp;Tag und ist heute
+      wieder fällig.</p>`;
 }
 
 function zeichneSicherungsStand(zustand) {

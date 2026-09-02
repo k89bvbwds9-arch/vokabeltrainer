@@ -9,6 +9,24 @@
 //   Stufe 0 --1 Tag--> 1 --3--> 2 --7--> 3 --16--> 4 --35--> 5
 export const INTERVALLE = [1, 3, 7, 16, 35];
 
+/**
+ * Auf welchem Abstand steht eine Karte GERADE - also welcher Abstand wurde
+ * ihr zuletzt zugeteilt?
+ *
+ * Das ist nicht dasselbe wie INTERVALLE[stufe], und die Verwechslung war ein
+ * echter Fehler in der Fortschrittsanzeige: Karten auf Stufe 1 (einmal
+ * gewusst, Abstand 1 Tag) standen unter der Beschriftung "3 T." - denn 3 ist
+ * der Abstand, den sie beim NAECHSTEN Mal bekaemen. Der Nutzer las daraus, sie
+ * kaemen erst in drei Tagen wieder, und wunderte sich am Folgetag zu Recht
+ * ueber 332 faellige Karten.
+ *
+ * Stufe 0 mit Faelligkeit bedeutet zurueckgeworfen: morgen wieder, also 1 Tag.
+ */
+export function aktuellerAbstand(stufe) {
+  if (stufe <= 0) return 1;
+  return INTERVALLE[Math.min(stufe, INTERVALLE.length) - 1];
+}
+
 // Nach der letzten Stufe verschwindet die Karte aus dem Alltag, aber nicht aus
 // dem Bestand. Vier Monate spaeter kommt sie einmal zur Kontrolle wieder.
 // Der Nutzer wollte urspruenglich "einmal gekonnt, nie wieder" - dagegen habe
@@ -81,13 +99,73 @@ export function bewerte(karte, gewusst, tag = heute()) {
  * nach einer Woche Urlaub vierzig - und genau daran scheitern Vokabeltrainer
  * im Alltag. Fuenf sind immer machbar.
  */
-export function stelleRundeZusammen(karten, { anzahl = 5, tag = heute() } = {}) {
+export function stelleRundeZusammen(karten, { anzahl = 5, tag = heute(), mische = mischen } = {}) {
   const ueberfaellig = karten.filter((k) => k.faellig && k.faellig < tag)
     .sort((a, b) => a.faellig.localeCompare(b.faellig));
   const faellig = karten.filter((k) => k.faellig === tag);
   const neu = karten.filter((k) => !k.faellig);
 
-  return [...ueberfaellig, ...faellig, ...neu].slice(0, anzahl);
+  // Innerhalb gleicher Dringlichkeit wird gemischt. Ohne das laeuft die Runde
+  // in Anlegereihenfolge - und die ist paarweise: erst "hin", dann "rueck"
+  // derselben Vokabel.
+  return ohneGeschwister([
+    ...nachDatumGemischt(ueberfaellig, mische),
+    ...mische(faellig),
+    ...mische(neu),
+  ], anzahl);
+}
+
+/** Aelteste Faelligkeit zuerst, aber innerhalb desselben Tages gemischt. */
+function nachDatumGemischt(karten, mische) {
+  const nachTag = new Map();
+  for (const k of karten) {
+    if (!nachTag.has(k.faellig)) nachTag.set(k.faellig, []);
+    nachTag.get(k.faellig).push(k);
+  }
+  return [...nachTag.keys()].sort().flatMap((t) => mische(nachTag.get(t)));
+}
+
+/**
+ * Nimmt die ersten `anzahl` Karten, aber moeglichst keine zwei zur selben
+ * Vokabel.
+ *
+ * Der Anlass kommt aus dem Betrieb: Weil jede Vokabel zwei Karten erzeugt und
+ * beide direkt hintereinander angelegt werden, kamen sie auch direkt
+ * hintereinander dran - erst "сейчас → jetzt", dann sofort "jetzt → сейчас".
+ * Die zweite Karte prueft dann nichts mehr, die Antwort stand ja gerade noch
+ * da. Der Merkstand steigt, das Gedaechtnis nicht.
+ *
+ * Reicht der Vorrat nicht, kommen die zurueckgestellten Geschwister ans Ende.
+ * Bei einer einzigen Vokabel im Stapel geht es nicht anders - dann sind zwei
+ * Karten immer noch besser als eine.
+ */
+function ohneGeschwister(kandidaten, anzahl) {
+  const runde = [], zurueck = [], schonDrin = new Set();
+
+  for (const k of kandidaten) {
+    if (runde.length >= anzahl) break;
+    if (schonDrin.has(k.vokabelId)) { zurueck.push(k); continue; }
+    runde.push(k);
+    schonDrin.add(k.vokabelId);
+  }
+  for (const k of zurueck) {
+    if (runde.length >= anzahl) break;
+    runde.push(k);
+  }
+  return runde;
+}
+
+/**
+ * Mischen nach Fisher und Yates. Austauschbar, damit die Tests eine feste
+ * Reihenfolge vorgeben koennen statt gegen den Zufall zu pruefen.
+ */
+export function mischen(liste) {
+  const a = [...liste];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 /** Wie viele Karten waeren insgesamt dran? Fuer "Noch 35 faellig - weiter?" */
@@ -131,7 +209,14 @@ export function statistik(zustand, tag = heute()) {
     neu: karten.filter((k) => !k.faellig).length,
     ruhend: karten.filter((k) => k.ruht).length,
     inArbeit: karten.filter((k) => k.faellig && !k.ruht).length,
-    proStufe: INTERVALLE.map((_, i) => karten.filter((k) => k.stufe === i && k.faellig).length),
+    // Ein Eintrag je Stufe 0 bis 5 - Stufe 5 fehlte frueher ganz, obwohl dort
+    // die Karten sitzen, die die Leiter durchlaufen haben und noch nicht
+    // ruhen. Ruhende zaehlen nicht mit, die stehen als eigene Zahl daneben.
+    proStufe: Array.from({ length: INTERVALLE.length + 1 }, (_, stufe) => ({
+      stufe,
+      abstand: aktuellerAbstand(stufe),
+      anzahl: karten.filter((k) => k.stufe === stufe && k.faellig && !k.ruht).length,
+    })),
     serie,
   };
 }

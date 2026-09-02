@@ -48,6 +48,10 @@ Jede Vokabel wird zu **zwei Karten**: Russisch → Deutsch und Deutsch →
 Russisch, jede mit eigenem Merkstand. Dass „сейчас → jetzt" sitzt, heißt nicht,
 dass einem „jetzt → сейчас" einfällt.
 
+Die beiden Karten einer Vokabel landen **nie in derselben Runde**, solange
+genug andere da sind — sonst stünde die Antwort ja gerade noch auf dem
+Bildschirm. Innerhalb gleicher Dringlichkeit wird gemischt.
+
 Gewusst schiebt die Karte weiter: **1 → 3 → 7 → 16 → 35 Tage**. Danach ruht sie
 und kommt nur noch alle vier Monate zur Kontrolle. Nicht gewusst wirft sie auf
 Anfang zurück, sie ist morgen wieder dran — und kommt einmal ans Ende der
@@ -55,6 +59,14 @@ laufenden Runde.
 
 Der Sinn: Jede Vokabel kommt genau dann, wenn man sie fast vergessen hätte.
 Gekonnte sieht man kaum noch, verliert sie aber auch nicht.
+
+**Die erste Wiederholung kommt schon am Folgetag.** Wer an einem Tag 160
+Vokabeln anlegt und durcharbeitet, hat am nächsten Tag 320 Karten fällig. Das
+ist kein Fehler, sondern die Leiter: Stufe 1 heißt ein Tag Abstand.
+
+Die Balken im Fortschritt zeigen den Abstand, auf dem eine Vokabel **gerade**
+steht — nicht den nächsten. „Anfang" sind zurückgeworfene Karten, die morgen
+wieder drankommen.
 
 ## Sicherung — bitte ernst nehmen
 
@@ -116,7 +128,7 @@ speicher.js                   IndexedDB, Sichern, Zusammenführen
 sprachen.js                   Sprachliste und Sprachausgabe
 sw.js                         Offlinebetrieb
 vendor/tesseract/             Texterkennung, mitgeliefert statt vom CDN
-sprachdaten/                  15 Sprachen, werden bei Bedarf geladen
+sprachdaten/                  17 Sprachen, werden bei Bedarf geladen
 werkzeug/                     Prüfstände, laufen nur auf dem Mac
 ```
 
@@ -139,7 +151,7 @@ Ohne Browser, ohne Netz, in einer Sekunde:
 npm test
 ```
 
-50 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
+62 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
 gegen echt gemessene Erkennungswerte, Zusammenführen von Sicherungen.
 
 Der Erkennungstest braucht die eigenen Screenshots in `testbilder/` (die sind
