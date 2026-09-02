@@ -378,6 +378,8 @@ A(bild_neben_text("5-vokabeln.png", 46, [
     "Unter <b>Vokabeln</b> siehst du oben deinen Fortschritt, darunter alle Einträge.",
     "Die <b>Punkte</b> neben jeder Vokabel zeigen, wie fest sie schon sitzt.",
     "<b>" + sym("✎") + "</b> ändert eine Vokabel direkt in der Liste, <b>" + sym("✕") + "</b> löscht sie.",
+    "Die <b>Balken</b> zeigen, in welchem Abstand eine Vokabel gerade wiederkommt – nicht, wann "
+    "sie das nächste Mal dran ist. „Anfang“ sind Vokabeln, die zuletzt nicht saßen.",
     "Über das Suchfeld findest du jede Vokabel wieder.",
 ]))
 
