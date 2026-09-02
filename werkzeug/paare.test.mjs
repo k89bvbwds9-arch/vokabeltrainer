@@ -3,7 +3,7 @@
 // vergleichen.mjs an testbilder/attrappe.png) und stehen hier als
 // Rueckfallsicherung: Der "Kyna"-Fall darf nie wieder unbemerkt durchgehen.
 import assert from "node:assert/strict";
-import { zuPaaren, schriftVon, schriftDerSprache, istRauschen } from "../paare.js";
+import { zuPaaren, schriftVon, schriftDerSprache, istRauschen, spaltenGrenze } from "../paare.js";
 
 let bestanden = 0;
 function pruefe(name, fn) {
@@ -208,6 +208,110 @@ pruefe("meldet eine dreizeilige Gruppe als unklar, statt zu raten", () => {
   assert.equal(paare.length, 1);
   assert.equal(unklar.length, 1);
   assert.ok(unklar[0].grund.includes("3 Zeilen"));
+});
+
+console.log("\nZwei Spalten nebeneinander (Buchseite)");
+
+// Nachgebaut aus der abfotografierten Lehrbuchseite: linke Spalte ab x=185,
+// Steg bei x=795, rechte Spalte ab x=810. Die Konfidenzwerte sind echt
+// gemessen - besonders die niedrigen bei Woertern mit Apostroph.
+const wort = (text, x0, breite, conf = 95) =>
+  ({ text, conf, bbox: { x0, x1: x0 + breite, y0: 0, y1: 0 } });
+const buchZeile = (y, linkeWorte, rechteWorte, x0 = 185) => ({
+  text: [...linkeWorte, ...rechteWorte].map((w) => w.text).join(" "),
+  conf: 90,
+  bbox: { x0, x1: 1500, y0: y, y1: y + 40 },
+  woerter: [...linkeWorte, ...rechteWorte].map((w) =>
+    ({ ...w, bbox: { ...w.bbox, y0: y, y1: y + 40 } })),
+});
+
+function buchseite(zeilen) {
+  return { quelle: zeilen, ziel: zeilen.map((z) => ({ ...z })) };
+}
+
+const BUCH = [
+  buchZeile(100, [wort("Ingresso", 185, 200)], []),                       // Ueberschrift
+  buchZeile(200, [wort("l'ingresso", 185, 210, 29)],                      // Apostroph, niedrige Konfidenz
+                 [wort("der", 810, 70), wort("Einstieg", 890, 180)]),
+  buchZeile(300, [wort("la", 185, 40), wort("famiglia", 235, 170)],
+                 [wort("die", 810, 70), wort("Familie", 890, 150), wort("e>;", 1300, 40, 0)]),
+  buchZeile(400, [wort("il", 185, 30), wort("signore;", 225, 180)],
+                 [wort("der", 810, 70), wort("Herr;", 890, 110)]),
+  buchZeile(500, [wort("pl.", 250, 60), wort("signori", 320, 140)],       // eingerueckte Fortsetzung
+                 [wort("Pl.", 875, 60), wort("Herrschaften", 945, 260)], 250),
+  buchZeile(600, [wort("nuovo", 185, 120)],
+                 [wort("neu", 810, 70), wort("A", 950, 25, 60)]),         // Rest der Nachbarseite
+  buchZeile(700, [wort("(E1)", 95, 65), wort("di", 185, 40)],            // Randmarke
+                 [wort("von,", 810, 90), wort("aus", 920, 70)]),
+  buchZeile(800, [wort("e", 185, 20)], [wort("und", 810, 70)]),           // einbuchstabige Vokabel
+];
+
+pruefe("erkennt eine zweispaltige Seite als solche", () => {
+  const { verfahren, grenze } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.equal(verfahren, "spalten");
+  // Der Steg muss zwischen dem Ende der linken und dem Anfang der rechten
+  // Spalte liegen - wo genau, ist gleichgueltig, solange er beide trennt.
+  assert.ok(grenze > 460 && grenze < 810, `Steg bei ${grenze}, trennt die Spalten nicht`);
+});
+pruefe("trennt links und rechts richtig", () => {
+  const { paare } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.deepEqual(paare.map((p) => `${p.quelle}|${p.ziel}`), [
+    "l'ingresso|der Einstieg",
+    "la famiglia|die Familie",
+    "il signore; pl. signori|der Herr; Pl. Herrschaften",
+    "nuovo|neu",
+    "di|von, aus",
+    "e|und",
+  ]);
+});
+pruefe("behaelt Woerter mit Apostroph trotz niedriger Konfidenz", () => {
+  // GEMESSEN: "l'ingresso" bekam im italienischen Modell Konfidenz 29,
+  // "l'appartamento" 38 - beide richtig gelesen. Eine reine
+  // Konfidenzschwelle hat genau diese Vokabeln verworfen.
+  const { paare } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.ok(paare.some((p) => p.quelle === "l'ingresso"));
+});
+pruefe("wirft Reste der Nachbarseite weg", () => {
+  const { paare } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.equal(paare.find((p) => p.quelle === "nuovo").ziel, "neu", "\"A\" ist Muell");
+  assert.equal(paare.find((p) => p.quelle === "la famiglia").ziel, "die Familie");
+});
+pruefe("wirft die Randmarke des Buches weg", () => {
+  const { paare } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.ok(paare.some((p) => p.quelle === "di"), "\"(E1) di\" muss zu \"di\" werden");
+});
+pruefe("fuehrt eine eingerueckte Fortsetzung mit der Zeile davor zusammen", () => {
+  const { paare } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.ok(paare.some((p) => p.quelle === "il signore; pl. signori"),
+    "die umbrochene Zelle muss eine Vokabel bleiben");
+});
+pruefe("meldet die Ueberschrift, statt sie anzuhaengen", () => {
+  const { paare, unklar } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.ok(unklar.some((u) => u.quelle === "Ingresso"));
+  assert.ok(!paare.some((p) => p.quelle.includes("Ingresso")));
+});
+pruefe("behaelt die einbuchstabige Vokabel \"e\"", () => {
+  // Der Muellfilter darf kurze Woerter nicht pauschal werfen - "e" heisst "und".
+  const { paare } = zuPaaren(buchseite(BUCH), { quelle: "ita", ziel: "deu" }, 1600);
+  assert.ok(paare.some((p) => p.quelle === "e" && p.ziel === "und"));
+});
+
+console.log("\nSpaltenerkennung greift NUR bei zwei Spalten");
+pruefe("haelt eine untereinander stehende Liste nicht fuer zweispaltig", () => {
+  // Die russischen Screenshots duerfen weiterhin ueber die Reihenfolge laufen.
+  const untereinander = [];
+  for (let i = 0; i < 9; i++) {
+    untereinander.push({ text: "слово", conf: 96, bbox: { x0: 100, x1: 400, y0: i * 200, y1: i * 200 + 40 },
+      woerter: [wort("слово", 100, 300)] });
+    untereinander.push({ text: "Wort", conf: 96, bbox: { x0: 100, x1: 350, y0: i * 200 + 70, y1: i * 200 + 110 },
+      woerter: [wort("Wort", 100, 250)] });
+  }
+  assert.equal(spaltenGrenze(untereinander, 1200), null);
+});
+pruefe("haelt auch die echten russischen Messwerte nicht fuer zweispaltig", () => {
+  const alsZeilen = ECHT.quelle.map((z) => ({ ...z, woerter: [wort(z.text, z.bbox.x0, z.bbox.x1 - z.bbox.x0)] }));
+  assert.equal(spaltenGrenze(alsZeilen, 1170), null);
+  assert.equal(zuPaaren(ECHT, { quelle: "rus", ziel: "deu" }, 1170).verfahren, "reihenfolge");
 });
 
 console.log(`\n${bestanden} Pruefungen bestanden` +

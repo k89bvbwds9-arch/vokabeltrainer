@@ -63,11 +63,20 @@ export function istRauschen(text) {
 function saeubereText(text) {
   return (text || "")
     .replace(/\s+/g, " ")
+    // Typografische Anfuehrungszeichen auf die geraden abbilden. Buchsatz
+    // benutzt "l’indirizzo", Tastaturen "l'indirizzo" - ohne das haette man
+    // dieselbe Vokabel in zwei Schreibweisen im Stapel und wuerde sie beim
+    // Suchen nicht wiederfinden.
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
     .trim()
     // Fuehrende und folgende Nicht-Buchstaben abschneiden - das sind die Reste,
-    // die Tesseract aus Haekchen- und Lesezeichensymbolen macht. Klammern und
-    // Punkte am Ende bleiben, die gehoeren oft zur Vokabel ("gehen (zu Fuss)").
-    .replace(/^[^\p{L}(]+|[^\p{L})\].!?]+$/gu, "")
+    // die Tesseract aus Haekchen- und Lesezeichensymbolen macht. Klammern,
+    // Punkte und Strichpunkte am Ende bleiben: Sie gehoeren oft zur Vokabel
+    // ("gehen (zu Fuss)") oder trennen im Buchsatz die Bedeutungen
+    // ("il signore/la signora;").
+    .replace(/^[^\p{L}(]+|[^\p{L})\].!?;:,]+$/gu, "")
     .trim();
 }
 
@@ -96,6 +105,10 @@ function verschmelze(quelleZeilen, zielZeilen) {
       bbox: q.bbox,
       quelleText: saeubereText(q.text), quelleConf: q.conf ?? 0,
       zielText: z ? saeubereText(z.text) : "", zielConf: z ? (z.conf ?? 0) : -1,
+      // Wortkaestchen beider Durchlaeufe getrennt aufheben - das Spaltenverfahren
+      // nimmt die linke Haelfte aus dem einen und die rechte aus dem anderen.
+      quelleWoerter: q.woerter || [],
+      zielWoerter: z?.woerter || [],
     });
   }
   // Zeilen, die nur der Ziel-Durchlauf gefunden hat, nicht verlieren
@@ -103,6 +116,7 @@ function verschmelze(quelleZeilen, zielZeilen) {
     raus.push({
       bbox: z.bbox, quelleText: "", quelleConf: -1,
       zielText: saeubereText(z.text), zielConf: z.conf ?? 0,
+      quelleWoerter: [], zielWoerter: z.woerter || [],
     });
   }
   return raus.sort((a, b) => a.bbox.y0 - b.bbox.y0);
@@ -364,15 +378,223 @@ function paareNachAbstand(zeilen) {
   return { paare, unklar };
 }
 
+// --- Verfahren 3: nebeneinander in zwei Spalten --------------------------
+//
+// Der Fall aus dem Lehrbuch: links die Vokabel, rechts die Uebersetzung -
+// anders als in Lern-Apps, wo beides untereinander steht.
+//
+// Tesseract liefert so eine Buchzeile als EINE Textzeile
+// ("l'ingresso der Einstieg, Eintritt; der Eingang"). Die Aufgabe ist also
+// nicht, Spalten zu finden, sondern jede Zeile an der richtigen Stelle zu
+// trennen. Und diese Stelle ist fuer die ganze Seite dieselbe.
+//
+// Gemessen an einer abfotografierten Buchseite: Die Belegungsdichte ueber die
+// Bildbreite zeigt links und rechts je einen dichten Block und dazwischen
+// einen Steg, an dem NULL Zeilen Text haben. Der laesst sich zuverlaessig
+// finden - viel zuverlaessiger als die groesste Luecke je Zeile, die bei
+// "il gatto die Katze ì" an der falschen Stelle liegt.
+
+// Am Steg duerfen hoechstens so viele Zeilen Text haben (Anteil aller Zeilen).
+// Nicht null, weil eine Ueberschrift oder ein Eselsohr durchaus hineinragt.
+const STEG_HOECHSTENS = 0.12;
+
+// So viele Zeilen muessen auf BEIDEN Seiten des Stegs Text haben, sonst ist es
+// keine Tabelle, sondern eine einspaltige Liste mit unterschiedlich langen
+// Zeilen. Dieser Wert ist die eigentliche Sicherung dafuer, dass die
+// russischen Screenshots weiterhin ueber die Reihenfolge zugeordnet werden.
+const BEIDSEITIG_MINDESTENS = 0.6;
+
+/**
+ * Sucht den senkrechten Steg zwischen zwei Textspalten.
+ * @returns x-Position oder null, wenn das Bild einspaltig ist
+ */
+export function spaltenGrenze(zeilen, bildBreite) {
+  const mitWoertern = zeilen.filter((z) => z.woerter?.length);
+  if (mitWoertern.length < 6) return null;
+
+  const schritt = 10;
+  const felder = Math.ceil(bildBreite / schritt);
+  const belegung = new Array(felder).fill(0);
+  for (const z of mitWoertern) {
+    const dabei = new Set();
+    for (const w of z.woerter) {
+      for (let x = Math.floor(w.bbox.x0 / schritt); x <= Math.floor(w.bbox.x1 / schritt); x++) {
+        if (x >= 0 && x < felder) dabei.add(x);
+      }
+    }
+    for (const x of dabei) belegung[x]++;
+  }
+
+  // Nur das mittlere Drittel kommt als Steg infrage. Der Rand ist immer leer.
+  const von = Math.floor(felder * 0.2), bis = Math.floor(felder * 0.8);
+  let wenigste = Infinity;
+  for (let i = von; i <= bis; i++) wenigste = Math.min(wenigste, belegung[i]);
+  if (!Number.isFinite(wenigste)) return null;
+  if (wenigste > mitWoertern.length * STEG_HOECHSTENS) return null;
+
+  // Der Steg ist meist mehrere Felder breit. Getrennt wird in seiner MITTE,
+  // nicht an seinem Anfang: Dort ist der Abstand zu beiden Spalten am
+  // groessten, und eine leicht schief gehaltene Kamera schiebt die Zeilen dann
+  // nicht ueber die Grenze.
+  let laufAnfang = -1, bester = { laenge: 0, x: -1 };
+  for (let i = von; i <= bis + 1; i++) {
+    const imLauf = i <= bis && belegung[i] === wenigste;
+    if (imLauf && laufAnfang < 0) laufAnfang = i;
+    if (!imLauf && laufAnfang >= 0) {
+      const laenge = i - laufAnfang;
+      if (laenge > bester.laenge) bester = { laenge, x: ((laufAnfang + i) / 2) * schritt };
+      laufAnfang = -1;
+    }
+  }
+  const tiefste = { wert: wenigste, x: bester.x };
+  if (tiefste.x < 0) return null;
+
+  const beidseitig = mitWoertern.filter((z) =>
+    z.woerter.some((w) => w.bbox.x1 <= tiefste.x) &&
+    z.woerter.some((w) => w.bbox.x0 >= tiefste.x)).length;
+  if (beidseitig < mitWoertern.length * BEIDSEITIG_MINDESTENS) return null;
+
+  return tiefste.x;
+}
+
+/**
+ * Zerlegt jede Zeile am Steg.
+ *
+ * Der Gewinn gegenueber allen anderen Verfahren: Bei zwei Spalten ist die
+ * Sprache je Seite BEKANNT, nicht geraten. Die linke Haelfte wird deshalb aus
+ * dem Durchlauf der Quellsprache genommen, die rechte aus dem der
+ * Zielsprache - jede Seite also von dem Modell gelesen, das sie kennt.
+ */
+function paareNachSpalten(verschmolzen, grenze, bildBreite) {
+  const zellen = verschmolzen.map((z) => ({
+    links: brauchbareWorte(z.quelleWoerter, (w) => w.bbox.x1 <= grenze),
+    rechts: brauchbareWorte(z.zielWoerter, (w) => w.bbox.x0 >= grenze),
+  }));
+
+  const linkerRand = spaltenRand(zellen.map((z) => z.links));
+  const rechterRand = spaltenRand(zellen.map((z) => z.rechts));
+  const einzug = Math.max(12, grenze * 0.04);
+
+  // Randmarken wie "E1" stehen im Buch LINKS neben der Spalte. Sie sind keine
+  // Vokabel und wuerden sonst vorne an jedem betroffenen Eintrag kleben.
+  //
+  // Gemessen wird am ANFANG des Wortes, nicht an seinem Ende: Ein Wort, das
+  // links vom Spaltenrand beginnt, steht ausserhalb der Spalte - unabhaengig
+  // davon, wie weit es nach rechts reicht. Die Toleranz faengt das uebliche
+  // Zittern der Zeilenanfaenge auf.
+  const toleranz = Math.max(10, grenze * 0.03);
+  const ohneRandmarken = (worte, rand) => worte.filter((w) => w.bbox.x0 >= rand - toleranz);
+
+  const paare = [], unklar = [];
+  let letztes = null;
+
+  for (const zelle of zellen) {
+    const linkeWorte = ohneRandmarken(zelle.links, linkerRand);
+    const links = saeubereText(linkeWorte.map((w) => w.text).join(" "));
+    const rechts = saeubereText(zelle.rechts.map((w) => w.text).join(" "));
+    if (!links && !rechts) continue;
+
+    const linksEingerueckt = linkeWorte.length && linkeWorte[0].bbox.x0 > linkerRand + einzug;
+    const rechtsEingerueckt = zelle.rechts.length && zelle.rechts[0].bbox.x0 > rechterRand + einzug;
+
+    // Eine Vokabel, deren Zelle umbricht, ist auf der betroffenen Seite
+    // EINGERUECKT - im Buch etwa "il signore/la signora; / pl. i signori m."
+    // mit "Pl. die Herrschaften" daneben. Beide Seiten eingerueckt heisst
+    // also: dieselbe Vokabel geht weiter, keine neue.
+    const istFortsetzung = letztes &&
+      ((links && rechts && linksEingerueckt && rechtsEingerueckt) ||
+       (links && !rechts && linksEingerueckt) ||
+       (rechts && !links && rechtsEingerueckt));
+
+    if (istFortsetzung) {
+      if (links) letztes.quelle += ` ${links}`;
+      if (rechts) letztes.ziel += ` ${rechts}`;
+      continue;
+    }
+
+    if (links && rechts) {
+      letztes = { quelle: links, ziel: rechts, sicher: true };
+      paare.push(letztes);
+      continue;
+    }
+
+    // Nur eine Seite belegt und nicht eingerueckt: eine Ueberschrift wie
+    // "Ingresso" oder "Lezione 1". Nicht wegwerfen - der Nutzer soll sehen,
+    // dass da etwas stand -, aber auch nicht an die Vokabel davor haengen.
+    unklar.push({ quelle: links || rechts, ziel: "", grund: "keine Übersetzung daneben" });
+    letztes = null;
+  }
+  return { paare, unklar };
+}
+
+/**
+ * Wirft aus einer Zellenhaelfte die Woerter, die keine sein koennen.
+ *
+ * GEMESSEN an der Buchseite: Am rechten Rand hinterlaesst die aufgeschlagene
+ * Nachbarseite Schattenreste, die Tesseract als winzige Woerter liest -
+ * "die Familie e>;", "neu A", "danke s". Echte Schlusswoerter der Zeile lagen
+ * bei Konfidenz 74 bis 97, jeder dieser Reste bei 0 bis 83, und alle waren
+ * ein bis drei Zeichen lang.
+ *
+ * Ein einzelner Buchstabe wird deshalb nur verworfen, wenn die Zelle noch
+ * etwas anderes enthaelt - "e" (italienisch "und") und "a" sind echte
+ * Vokabeln und stehen dann allein.
+ */
+function brauchbareWorte(woerter, gehoertDazu) {
+  const roh = (woerter || []).filter(gehoertDazu).filter((w) => {
+    const text = w.text.trim();
+    const konf = w.conf ?? 100;
+    if (!text || !/\p{L}/u.test(text)) return false;      // Striche, Ziffern, Zeichen
+    // Kurz UND unsicher heisst Muell. Kurz allein nicht: "e", "a" und "di"
+    // sind echte Vokabeln. Unsicher allein auch nicht - das war ein Fehlgriff:
+    // Woerter mit Apostroph bekommen im italienischen Modell niedrige Werte,
+    // obwohl sie richtig gelesen sind ("l'ingresso" 29, "l'appartamento" 38).
+    // Eine reine Konfidenzschwelle hat genau diese Vokabeln verworfen.
+    return !(text.length <= 3 && konf < 40);
+  });
+  if (roh.length <= 1) return roh;
+  // Ein einzelner Buchstabe am ENDE einer sonst gefuellten Zelle ist ein Rest
+  // der Nachbarseite ("neu A", "danke s"), keine Vokabel.
+  return roh.filter((w, i) =>
+    !(i === roh.length - 1 && w.text.trim().length === 1 && (w.conf ?? 100) < 90));
+}
+
+/**
+ * Wo faengt eine Spalte an?
+ *
+ * Bewusst nicht das Minimum: Randmarken stehen weiter links, umbrochene
+ * Zeilen weiter rechts. Beides sind Ausreisser, und das Minimum faellt auf den
+ * ersten herein - dann gilt jede Ueberschrift als eingerueckt und wird an die
+ * Vokabel davor gehaengt.
+ */
+function spaltenRand(zellen) {
+  const anfaenge = zellen.filter((w) => w.length).map((w) => w[0].bbox.x0).sort((a, b) => a - b);
+  if (!anfaenge.length) return 0;
+  return anfaenge[Math.floor(anfaenge.length * 0.3)];
+}
+
 // --- Einstieg -------------------------------------------------------------
 /**
- * @param durchlaeufe { quelle: [{text, conf, bbox}], ziel: [...] }
+ * @param durchlaeufe { quelle: [{text, conf, bbox, woerter}], ziel: [...] }
  * @param paar        { quelle: "rus", ziel: "deu" }
+ * @param bildBreite  Breite des erkannten Bildes, fuer die Spaltensuche
  */
-export function zuPaaren(durchlaeufe, paar) {
-  const zeilen = bestimmeSprache(verschmelze(durchlaeufe.quelle, durchlaeufe.ziel));
-  const gleicheSchrift = schriftDerSprache(paar.quelle) === schriftDerSprache(paar.ziel);
+export function zuPaaren(durchlaeufe, paar, bildBreite = 0) {
+  const verschmolzen = verschmelze(durchlaeufe.quelle, durchlaeufe.ziel);
 
+  // Zuerst pruefen, ob die Vorlage zweispaltig ist. Das ist die einzige
+  // Anordnung, bei der die Sprache je Seite feststeht statt geraten zu werden -
+  // wenn sie vorliegt, ist sie allen anderen Verfahren ueberlegen.
+  const breite = bildBreite || Math.max(0, ...verschmolzen.map((z) => z.bbox.x1)) + 40;
+  const grenze = spaltenGrenze(
+    verschmolzen.map((z) => ({ ...z, woerter: z.quelleWoerter })), breite);
+
+  if (grenze) {
+    return { ...paareNachSpalten(verschmolzen, grenze, breite), verfahren: "spalten", grenze };
+  }
+
+  const zeilen = bestimmeSprache(verschmolzen);
+  const gleicheSchrift = schriftDerSprache(paar.quelle) === schriftDerSprache(paar.ziel);
   const ergebnis = gleicheSchrift ? paareNachAbstand(zeilen) : paareNachReihenfolge(zeilen);
   return { ...ergebnis, verfahren: gleicheSchrift ? "abstand" : "reihenfolge", zeilen };
 }

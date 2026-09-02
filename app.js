@@ -266,7 +266,7 @@ async function verarbeiteFoto(datei) {
   try {
     const { erkenne } = await import("./erkennung.js");
     const durchlaeufe = await erkenne(datei, paar, (t) => { el("arbeitText").textContent = t; });
-    const { paare, unklar } = zuPaaren(durchlaeufe, paar);
+    const { paare, unklar } = zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
 
     S.vorschlaege = [
       ...paare.map((p) => ({ ...p, uebernehmen: true })),

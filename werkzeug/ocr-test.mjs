@@ -86,7 +86,11 @@ async function liesMitAusweich(arbeiterQ, arbeiterZ, puffer) {
   const lies = async (a, modus) => {
     await a.setParameters({ tessedit_pageseg_mode: modus });
     const e = await a.recognize(puffer, {}, { blocks: true, text: false });
-    return zeilenAus(e.data).map((z) => ({ text: z.text, conf: z.confidence, bbox: z.bbox }));
+    return zeilenAus(e.data).map((z) => ({
+      text: z.text, conf: z.confidence, bbox: z.bbox,
+      woerter: (z.words || []).filter((w) => w.text && w.text.trim())
+        .map((w) => ({ text: w.text, conf: w.confidence, bbox: w.bbox })),
+    }));
   };
   let quelle = await lies(arbeiterQ, SEITENMODUS);
   let ziel = await lies(arbeiterZ, SEITENMODUS);
@@ -150,7 +154,8 @@ async function main() {
     const t0 = Date.now();
     const { quelle, ziel, modus } = await liesMitAusweich(arbeiterQ, arbeiterZ, puffer);
     const dauer = Date.now() - t0;
-    const { paare, unklar, verfahren } = zuPaaren({ quelle, ziel }, paar);
+    const { width: bildBreite } = await sharp(puffer).metadata();
+    const { paare, unklar, verfahren } = zuPaaren({ quelle, ziel }, paar, bildBreite);
 
     console.log(`\n--- Modus ${modus} (${MODUS_NAME[modus]}) · ${dauer} ms · Verfahren "${verfahren}" ---`);
     for (const p of paare) console.log(`   ${p.sicher ? " " : "?"} ${p.quelle}  |  ${p.ziel}`);

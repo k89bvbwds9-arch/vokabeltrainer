@@ -92,14 +92,34 @@ Kurzbefehle-App eine Automation „Tageszeit → App öffnen" anlegen.
 **Aus der Foto-App direkt teilen.** Web Share Target gibt es unter iOS nicht.
 Erst die App öffnen, dann das Bild wählen.
 
+## Zwei Anordnungen von Vorlagen
+
+Die App erkennt selbst, wie eine Vorlage aufgebaut ist:
+
+**Untereinander** – wie in Lern-Apps: Vokabel oben, Übersetzung darunter.
+Bei verschiedenen Alphabeten (Russisch–Deutsch) wird am Schriftsystem
+zugeordnet, sonst an den Zeilenabständen.
+
+**Nebeneinander** – wie im Lehrbuch: Vokabel links, Übersetzung rechts.
+Erkannt wird das an der Belegungsdichte über die Bildbreite: Zwei dichte
+Blöcke mit einem leeren Steg dazwischen. Getrennt wird in der Mitte des Stegs.
+
+Das Spaltenverfahren hat einen Vorteil, den keines der anderen hat: Die Sprache
+je Seite steht **fest** statt geraten zu werden. Die linke Hälfte wird deshalb
+vom Modell der Quellsprache gelesen, die rechte von dem der Zielsprache.
+Umbrochene Zellen erkennt es am Einzug und führt sie zusammen; Überschriften
+und Randmarken wie „E1“ fallen weg.
+
 ## Wie gut die Erkennung ist
 
 Gemessen an 19 echten Screenshots der Lern-App, davon 4 mit von Hand
-geschriebener Vergleichsliste (35 Vokabelpaare):
+geschriebener Vergleichsliste (35 Vokabelpaare), sowie einer abfotografierten
+Lehrbuchseite (ebenfalls 35 Paare):
 
 | | |
 |---|---|
-| Zeichengenau richtig | **33/35 = 94 %** |
+| Zeichengenau richtig, Screenshots | **33/35 = 94 %** |
+| Zeichengenau richtig, Buchseite | **33/35 = 94 %** (Browser 32/35) |
 | Gefundene Paare über alle 19 Bilder | 161 |
 | Durchgerutschter App-Rahmen (Titel, Knöpfe) | 0 |
 | Als unsicher markiert und damit sichtbar | 19 |
@@ -151,7 +171,7 @@ Ohne Browser, ohne Netz, in einer Sekunde:
 npm test
 ```
 
-62 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
+72 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
 gegen echt gemessene Erkennungswerte, Zusammenführen von Sicherungen.
 
 Der Erkennungstest braucht die eigenen Screenshots in `testbilder/` (die sind
@@ -160,11 +180,22 @@ Zeile:
 
 ```bash
 node werkzeug/ocr-test.mjs testbilder/*.PNG
+node werkzeug/ocr-test.mjs --paar ita:deu testbilder/italienisch-buch.png
 node werkzeug/uebersicht.mjs testbilder/*.PNG     # nur Struktur, ohne Messung
 node werkzeug/varianten.mjs testbilder/*.PNG      # Bildbehandlung vergleichen
 ```
 
-## Drei Fallen, die Geld gekostet haben
+Wenn eine Vorlage nicht sauber erkannt wird, führen diese vier Werkzeuge
+schrittweise zur Ursache:
+
+```bash
+node werkzeug/rohzeilen.mjs BILD ita        # was Tesseract überhaupt sieht
+node werkzeug/woerter.mjs BILD ita          # Wortlücken je Zeile
+node werkzeug/spalte-finden.mjs BILD ita    # Belegungsdichte, Steg
+node werkzeug/zellen.mjs BILD ita deu 795   # linke und rechte Zellenhälfte
+```
+
+## Vier Fallen, die Zeit gekostet haben
 
 Alle drei wurden gebaut, gemessen und wieder ausgebaut. Wer sie erneut
 einbauen will, sollte vorher `werkzeug/varianten.mjs` laufen lassen.
@@ -183,7 +214,14 @@ Quote auf 51 % — iPhone-Screenshots sind Display P3, das Canvas rechnet nach
 sRGB um. Heute geht das Bild unverändert an Tesseract, solange es nicht
 verkleinert oder umgedreht werden muss.
 
-**3. Fortsetzungszeilen.** Umbrochene Übersetzungen müssen angehängt werden
+**3. Wortfilter allein nach Konfidenz.** Beim Spaltenverfahren sollten Reste
+der Nachbarseite („die Familie e>;“, „neu A“) verschwinden. Eine Schwelle von
+40 warf sie zuverlässig weg – zusammen mit `l'ingresso` (Konfidenz 29) und
+`l'appartamento` (38). Wörter mit Apostroph bekommen im italienischen Modell
+niedrige Werte, obwohl sie richtig gelesen sind. Es zählt **kurz UND unsicher**,
+nicht unsicher allein.
+
+**4. Fortsetzungszeilen.** Umbrochene Übersetzungen müssen angehängt werden
 („Entschuldigung, ich habe / nicht verstanden"), Knopfbeschriftungen nicht.
 Der erste Anlauf hängte auch weit entfernte Zeilen an und machte aus
 `друг | Freund` ein `друг | Freund Haus` — eine Vokabel verdorben, eine

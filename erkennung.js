@@ -89,8 +89,14 @@ export async function vorverarbeite(datei) {
   //
   // Die Lehre gilt allgemein: Jede Bildbearbeitung muss sich rechtfertigen.
   // Keine ist der Normalfall.
-  if (!dunkelmodus && bild.width <= MAX_BREITE) {
-    return { eingabe: datei, dunkelmodus, unveraendert: true };
+  // HEIC/HEIF gehen IMMER ueber das Canvas. iPhone-Fotos kommen in diesem
+  // Format, und nur der Browser selbst kann es entpacken - reicht man die Datei
+  // unveraendert an Tesseract weiter, bekommt es Bytes, mit denen es nichts
+  // anfangen kann. Ueber das Canvas hat Safari das Bild bereits dekodiert.
+  const istHeic = /hei[cf]/i.test(datei.type || "") || /\.hei[cf]$/i.test(datei.name || "");
+
+  if (!dunkelmodus && !istHeic && bild.width <= MAX_BREITE) {
+    return { eingabe: datei, dunkelmodus, unveraendert: true, bild };
   }
 
   const faktor = Math.min(1, MAX_BREITE / bild.width);
@@ -112,7 +118,7 @@ export async function vorverarbeite(datei) {
     stift.putImageData(daten, 0, 0);
   }
 
-  return { eingabe: flaeche, dunkelmodus, unveraendert: false };
+  return { eingabe: flaeche, dunkelmodus, unveraendert: false, bild };
 }
 
 /**
@@ -160,7 +166,18 @@ function zeilenAus(daten) {
   return raus;
 }
 
-const schlank = (zeilen) => zeilen.map((z) => ({ text: z.text, conf: z.confidence, bbox: z.bbox }));
+// Die Wortkaestchen muessen mit: Bei einem Buchseiten-Layout stehen Vokabel
+// und Uebersetzung NEBENEINANDER, und Tesseract liefert beide Spalten als EINE
+// Zeile. Ohne Wortpositionen liesse sich die Zeile nicht an der Spaltengrenze
+// trennen.
+const schlank = (zeilen) => zeilen.map((z) => ({
+  text: z.text,
+  conf: z.confidence,
+  bbox: z.bbox,
+  woerter: (z.words || [])
+    .filter((w) => w.text && w.text.trim())
+    .map((w) => ({ text: w.text, conf: w.confidence, bbox: w.bbox })),
+}));
 
 async function lies(arbeiter, eingabe, modus) {
   await arbeiter.setParameters({ tessedit_pageseg_mode: modus });
@@ -176,7 +193,7 @@ async function lies(arbeiter, eingabe, modus) {
  */
 export async function erkenne(datei, paar, melde) {
   melde?.("Bild wird vorbereitet …");
-  const { eingabe, dunkelmodus } = await vorverarbeite(datei);
+  const { eingabe, dunkelmodus, bild } = await vorverarbeite(datei);
 
   const [arbeiterQ, arbeiterZ] = [
     await holeArbeiter(paar.quelle, melde),
@@ -204,5 +221,6 @@ export async function erkenne(datei, paar, melde) {
     }
   }
 
-  return { quelle, ziel, dunkelmodus };
+  const bildBreite = eingabe instanceof HTMLCanvasElement ? eingabe.width : bild.width;
+  return { quelle, ziel, dunkelmodus, bildBreite };
 }
