@@ -24,6 +24,7 @@ const S = {
   frei: false,          // freies Ueben: veraendert den Merkstand nicht
   kategorie: null,      // welche Gruppe beim freien Ueben gewaehlt wurde
   wahlZiel: null,       // wohin die Sprachauswahl fuehrt: "runde" oder "frei"
+  fortschrittPaar: null,  // welches Sprachpaar der Fortschritt zeigt; null = alle
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
   verfahren: null,      // wie das letzte Bild gelesen wurde
   diagnose: null,       // nackte Zahlen des letzten Durchlaufs
@@ -559,14 +560,23 @@ async function sichereErkennung() {
 // --- Vokabelliste ---------------------------------------------------------
 function zeichneVokabeln() {
   const zustand = speicher.hole();
+  zeichneFortschrittPaare(zustand);          // setzt S.fortschrittPaar zurueck, falls noetig
   const suchtext = el("suche").value.trim().toLowerCase();
 
-  const gefiltert = zustand.vokabeln.filter((v) =>
+  // Die Sprachwahl ueber dem Fortschritt gilt auch fuer die Liste darunter.
+  // Anders sah es aus wie ein Fehler: oben "Russisch" gewaehlt, unten
+  // italienische Vokabeln und die Gesamtzahl aller Eintraege.
+  const imPaar = zustand.vokabeln.filter((v) =>
+    !S.fortschrittPaar || v.paarId === S.fortschrittPaar);
+  const gefiltert = imPaar.filter((v) =>
     !suchtext || v.quelle.toLowerCase().includes(suchtext) || v.ziel.toLowerCase().includes(suchtext));
 
+  const karten = S.fortschrittPaar
+    ? lernen.kartenDerPaare(zustand, [S.fortschrittPaar]).length
+    : zustand.karten.length;
   el("listenKopf").textContent = suchtext
-    ? `${gefiltert.length} von ${zustand.vokabeln.length}`
-    : `${zustand.vokabeln.length} Vokabeln · ${zustand.karten.length} Karten`;
+    ? `${gefiltert.length} von ${imPaar.length}`
+    : `${imPaar.length} Vokabeln · ${karten} Karten`;
 
   el("vokabelListe").innerHTML = gefiltert.length
     ? gefiltert.slice().reverse().map((v) => {
@@ -590,8 +600,35 @@ function zeichneVokabeln() {
   zeichneSicherungsStand(zustand);
 }
 
+/**
+ * Die Sprachwahl ueber dem Fortschritt.
+ *
+ * Bewusst nicht gespeichert: Beim naechsten Oeffnen steht wieder "Alle" da.
+ * Ein stiller Filter, an den man sich nicht erinnert, fuehrt sonst zu der
+ * Frage, wo die halben Vokabeln geblieben sind.
+ */
+function zeichneFortschrittPaare(zustand) {
+  const paare = lernen.paarStatistik(zustand);
+  const streifen = el("fortschrittPaare");
+  streifen.hidden = paare.length <= 1;
+  if (streifen.hidden) { S.fortschrittPaar = null; return; }
+
+  // Ein inzwischen geloeschtes Sprachpaar darf nicht als Filter haengenbleiben.
+  if (S.fortschrittPaar && !paare.some((p) => p.id === S.fortschrittPaar)) S.fortschrittPaar = null;
+
+  streifen.innerHTML = [{ id: null, name: "Alle" }, ...paare].map((p) => `
+    <button data-paar="${p.id ?? ""}" class="${(p.id ?? null) === S.fortschrittPaar ? "aktiv" : ""}">
+      ${schuetze(p.name)}</button>`).join("");
+}
+
 function zeichneFortschritt(zustand) {
-  const s = lernen.statistik(zustand);
+  // Der Fortschritt zeigt entweder alles oder ein einzelnes Sprachpaar. Wer
+  // zwei Sprachen fuehrt, sieht sonst nur eine vermischte Summe, aus der sich
+  // nichts ablesen laesst.
+  const gefiltert = S.fortschrittPaar
+    ? { ...zustand, karten: lernen.kartenDerPaare(zustand, [S.fortschrittPaar]) }
+    : zustand;
+  const s = lernen.statistik(gefiltert);
 
   // Leerer Bestand: Balken auf null waeren als erstes Element des Bildschirms
   // nur entmutigend und sagen nichts.
@@ -831,6 +868,13 @@ function verdrahte() {
       const z = zeile.querySelector('[data-feld="ziel"]');
       [q.value, z.value] = [z.value, q.value];
     }
+  });
+
+  el("fortschrittPaare").addEventListener("click", (e) => {
+    const knopf = e.target.closest("[data-paar]");
+    if (!knopf) return;
+    S.fortschrittPaar = knopf.dataset.paar || null;
+    zeichneVokabeln();
   });
 
   el("suche").addEventListener("input", zeichneVokabeln);

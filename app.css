@@ -299,6 +299,23 @@ input[type="search"] { margin-bottom: 12px; }
    waren sie das Letzte auf der Seite und kamen mit einer aus. */
 .fortschrittKasten { margin: 4px 0 18px; }
 
+/* Sprachwahl fuer den Fortschritt. Waagerecht scrollbar, damit auch fuenf
+   Sprachpaare nebeneinander passen, ohne die Seite zu sprengen. */
+.paarStreifen {
+  display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px;
+  -webkit-overflow-scrolling: touch;
+}
+.paarStreifen button {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--karte);
+  color: var(--schrift-leise);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.paarStreifen button.aktiv { background: var(--ton); color: var(--ton-schrift); font-weight: 600; }
+
 .einstellungen {
   border-top: 1px solid var(--linie);
   border-bottom: 1px solid var(--linie);

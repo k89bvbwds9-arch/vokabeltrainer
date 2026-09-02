@@ -39,7 +39,13 @@ solche, bei denen die Erkennung selbst unsicher war — die lohnt sich anzusehen
 Bereits bekannte Vokabeln sind grau und abgewählt. Jedes Feld ist antippbar und
 änderbar, ⇅ vertauscht die beiden Sprachen einer Zeile, ✕ wirft sie weg.
 
-**Vokabeln.** Alle Einträge, durchsuchbar. ✎ ändert an Ort und Stelle, ✕
+**Vokabeln.** Bei mehreren Sprachpaaren steht oben eine Sprachwahl —
+**Alle** oder ein einzelnes Paar. Sie gilt für den Fortschritt *und* die Liste
+darunter, sonst sähe es aus wie ein Fehler. Sie wird bewusst nicht gespeichert:
+Beim nächsten Öffnen steht wieder „Alle" da, damit sich niemand fragt, wo die
+halben Vokabeln geblieben sind.
+
+Darunter alle Einträge, durchsuchbar. ✎ ändert an Ort und Stelle, ✕
 löscht. Darunter Einstellungen, Sicherung und der Fortschritt.
 
 ## Wie die Wiederholung funktioniert
