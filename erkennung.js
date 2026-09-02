@@ -222,5 +222,23 @@ export async function erkenne(datei, paar, melde) {
   }
 
   const bildBreite = eingabe instanceof HTMLCanvasElement ? eingabe.width : bild.width;
-  return { quelle, ziel, dunkelmodus, bildBreite };
+
+  // Diagnose fuer den Bestaetigungsbildschirm.
+  //
+  // Anlass: Eine Buchseite lief hier fehlerfrei durch und ergab auf dem iPhone
+  // Unsinn. Zwei Rueckfragen und eine falsche Vermutung spaeter war klar, dass
+  // ohne die nackten Zahlen vom Geraet selbst keine Diagnose moeglich ist.
+  // Diese Zeile kostet nichts und beantwortet die Fragen, die sich stellen:
+  // Wie gross kam das Bild an? Wurde es ueber das Canvas gereicht? Wie viele
+  // Zeilen und Woerter hat Tesseract gefunden?
+  const zaehleWorte = (zeilen) => zeilen.reduce((s, z) => s + (z.woerter?.length || 0), 0);
+  const diagnose = {
+    rohBreite: bild.width, rohHoehe: bild.height,
+    ocrBreite: bildBreite,
+    ueberCanvas: eingabe instanceof HTMLCanvasElement,
+    zeilenQ: quelle.length, zeilenZ: ziel.length,
+    worteQ: zaehleWorte(quelle), worteZ: zaehleWorte(ziel),
+  };
+
+  return { quelle, ziel, dunkelmodus, bildBreite, diagnose };
 }

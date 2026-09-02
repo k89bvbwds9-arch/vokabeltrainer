@@ -215,7 +215,13 @@ input[type="search"] { margin-bottom: 12px; }
 @keyframes dreh { to { transform: rotate(360deg); } }
 
 /* --- Bestaetigungsbildschirm ------------------------------------------- */
-.pruefKopf { font-size: 14px; color: var(--schrift-leise); margin: 4px 0 14px; }
+.pruefKopf { font-size: 14px; color: var(--schrift-leise); margin: 4px 0 4px; }
+/* Nackte Zahlen des Erkennungslaufs. Klein und unauffaellig, aber vorhanden -
+   ohne sie war ein Fehler, der nur auf dem iPhone auftrat, nicht zu finden. */
+.pruefDiagnose {
+  font-size: 11px; color: var(--schrift-leise); opacity: .75;
+  margin: 0 0 14px; font-variant-numeric: tabular-nums;
+}
 
 .pruefZeile {
   background: var(--karte);

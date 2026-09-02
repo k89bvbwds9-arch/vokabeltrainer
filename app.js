@@ -24,6 +24,7 @@ const S = {
   kategorie: null,      // welche Gruppe beim freien Ueben gewaehlt wurde
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
   verfahren: null,      // wie das letzte Bild gelesen wurde
+  diagnose: null,       // nackte Zahlen des letzten Durchlaufs
 };
 
 // --- Kurzmeldungen --------------------------------------------------------
@@ -300,8 +301,9 @@ async function verarbeiteFoto(datei) {
   try {
     const { erkenne } = await import("./erkennung.js");
     const durchlaeufe = await erkenne(datei, paar, (t) => { el("arbeitText").textContent = t; });
-    const { paare, unklar, verfahren } = zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
+    const { paare, unklar, verfahren, grenze } = zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
     S.verfahren = verfahren;
+    S.diagnose = { ...durchlaeufe.diagnose, verfahren, grenze };
 
     S.vorschlaege = [
       ...paare.map((p) => ({ ...p, uebernehmen: true })),
@@ -353,6 +355,15 @@ function zeichnePruefung(paar) {
     (unsicher ? ` · ${unsicher} unsicher, bitte prüfen` : "") +
     ` · ${nameVon(paar.quelle)} → ${nameVon(paar.ziel)}` +
     (gelesen[S.verfahren] ? ` · ${gelesen[S.verfahren]}` : "");
+
+  const d = S.diagnose;
+  el("pruefDiagnose").hidden = !d;
+  if (d) {
+    el("pruefDiagnose").textContent =
+      `Bild ${d.rohBreite}×${d.rohHoehe}${d.ueberCanvas ? ` → ${d.ocrBreite}` : " unverändert"} · ` +
+      `Zeilen ${d.zeilenQ}/${d.zeilenZ} · Wörter ${d.worteQ}/${d.worteZ}` +
+      (d.grenze ? ` · Steg ${Math.round(d.grenze)}` : " · kein Steg");
+  }
 
   el("pruefListe").innerHTML = S.vorschlaege.map((v, i) => {
     const doppelt = bekannt.has(`${v.quelle} ${v.ziel}`);
