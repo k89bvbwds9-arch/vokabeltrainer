@@ -306,7 +306,12 @@ async function verarbeiteFoto(datei) {
     const { paare, unklar, verfahren, grenze, messung } =
       zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
     S.verfahren = verfahren;
-    S.diagnose = { ...durchlaeufe.diagnose, verfahren, grenze, messung };
+    // Wurden die Spalten einzeln gelesen, stammen die Woerter danach je Seite
+    // aus einem eigenen Ausschnitt - eine erneute Messung ergaebe dann
+    // zwangslaeufig "beidseitig 0 %". Angezeigt wird deshalb die urspruengliche
+    // Erkennung, die zu der Entscheidung gefuehrt hat.
+    S.diagnose = { ...durchlaeufe.diagnose, verfahren, grenze,
+      messung: durchlaeufe.diagnose?.messung || messung };
     // Die Rohdaten aufheben, damit sie sich als Datei sichern lassen. Ohne sie
     // ist ein Fehler, der nur auf einem anderen Geraet auftritt, nicht
     // nachzustellen - und Bildschirmfotos reichen ab einer gewissen Tiefe nicht.
