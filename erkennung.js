@@ -11,6 +11,7 @@
 // Meldung, die das Modul nennt statt die Ursache.
 import Tesseract from "./vendor/tesseract/tesseract.esm.min.js";
 import { MAX_BREITE, DUNKEL_AB, SEITENMODUS, SEITENMODUS_ERSATZ, MIN_ZEILEN } from "./bildwerte.js";
+import { spaltenAufteilung } from "./paare.js";
 
 const PFADE = {
   worker: "./vendor/tesseract/worker.min.js",
@@ -144,6 +145,28 @@ function mittlereHelligkeit(bild) {
   return summe / (p.length / 4);
 }
 
+/** Schneidet einen senkrechten Streifen heraus, in der Groesse des Erkennungslaufs. */
+function zeichneAusschnitt(bild, vonX, bisX, skala) {
+  const breite = Math.max(1, Math.round((bisX - vonX) * skala));
+  const hoehe = Math.max(1, Math.round(bild.height * skala));
+  const flaeche = document.createElement("canvas");
+  flaeche.width = breite;
+  flaeche.height = hoehe;
+  flaeche.getContext("2d").drawImage(
+    bild, vonX, 0, bisX - vonX, bild.height, 0, 0, breite, hoehe);
+  return flaeche;
+}
+
+/** Rechnet die Kaestchen eines Ausschnitts zurueck aufs ganze Bild. */
+function verschiebe(zeile, versatz) {
+  const um = (b) => ({ ...b, x0: b.x0 + versatz, x1: b.x1 + versatz });
+  return {
+    ...zeile,
+    bbox: um(zeile.bbox),
+    woerter: (zeile.woerter || []).map((w) => ({ ...w, bbox: um(w.bbox) })),
+  };
+}
+
 function ladeBild(datei) {
   return new Promise((fertig, fehler) => {
     const url = URL.createObjectURL(datei);
@@ -205,6 +228,7 @@ export async function erkenne(datei, paar, melde) {
   // wortlos, und der Nutzer sieht nur einen Neustart ohne Erklaerung.
   melde?.("Text wird gelesen (1 von 2) …");
   let quelle = await lies(arbeiterQ, eingabe, SEITENMODUS);
+
   melde?.("Text wird gelesen (2 von 2) …");
   let ziel = await lies(arbeiterZ, eingabe, SEITENMODUS);
 
@@ -222,6 +246,64 @@ export async function erkenne(datei, paar, melde) {
   }
 
   const bildBreite = eingabe instanceof HTMLCanvasElement ? eingabe.width : bild.width;
+
+  // Zwei Spalten? Dann jede EINZELN lesen.
+  //
+  // GEMESSEN (werkzeug/spaltenversuch.mjs): Tesseract bestimmt seine
+  // Schwarz-Weiss-Schwelle ueber das ganze Bild. Die linke Spalte der
+  // Buchseite ist grau hinterlegt - im Mittel 134 gegen 177 der weissen
+  // rechten. Auf diesem Rechner reicht das noch; auf Renes iPhone verschiebt
+  // die Farbumrechnung sie so weit, dass sie als Hintergrund durchfaellt: 42
+  // statt 105 Woerter links, waehrend rechts alles stand.
+  //
+  // Nachgestellt, indem die linke Spalte im Kontrast zusammengedrueckt wurde:
+  //
+  //   ganzes Bild, Original        105 Woerter links
+  //   ganzes Bild, kontrastarm       0 Woerter links   <- Renes Fall
+  //   eigener Ausschnitt           108 Woerter links   <- die Loesung
+  //
+  // Im eigenen Ausschnitt ist die graue Flaeche das hellste im Bild, und
+  // Tesseracts Schwelle richtet sich danach.
+  //
+  // GEPRUEFT UND VERWORFEN: die Spalten stattdessen im BILD zu suchen, ueber
+  // die senkrechte Streuung der Helligkeit je Bildspalte. Das findet den Steg
+  // auch dann, wenn eine Spalte gar nicht gelesen wurde - kann einspaltige
+  // Vorlagen aber nicht zuverlaessig ablehnen. In einem Screenshot ist das Tal
+  // rechts vom Text flach und breit, das Minimum springt je nach Rundung
+  // zwischen x=728, 800 und 903, und bei IMG_3392 landete es mitten im Text.
+  // Vier von sieben russischen Screenshots wurden faelschlich fuer zweispaltig
+  // gehalten; die Trefferquote fiel von 94 auf 26 Prozent. Die Zuordnung ueber
+  // erkannte Woerter trennt dagegen sauber (84 % gegen 0 bis 3 %).
+  //
+  // Preis dieser Entscheidung: Ist eine Spalte SO blass, dass gar kein Wort
+  // darin erkannt wird, bemerkt die App die Spalten nicht. Auf Renes Geraet
+  // wurden 42 Woerter gefunden - genug.
+  const aufteilung = spaltenAufteilung(quelle, bildBreite);
+  if (aufteilung?.ok) {
+    melde?.("Spalten gefunden, jede wird einzeln gelesen …");
+    const skala = bildBreite / bild.width;
+    const grenze = aufteilung.grenze;
+
+    const links = zeichneAusschnitt(bild, 0, grenze / skala, skala);
+    const rechts = zeichneAusschnitt(bild, grenze / skala, bild.width, skala);
+
+    const quelleLinks = await lies(arbeiterQ, links, SEITENMODUS);
+    const zielRechts = await lies(arbeiterZ, rechts, SEITENMODUS);
+
+    return {
+      quelle: quelleLinks,
+      ziel: zielRechts.map((z) => verschiebe(z, grenze)),
+      grenze,
+      dunkelmodus, bildBreite,
+      diagnose: {
+        rohBreite: bild.width, rohHoehe: bild.height, ocrBreite: bildBreite,
+        ueberCanvas: true, spaltenEinzeln: true, messung: aufteilung,
+        zeilenQ: quelleLinks.length, zeilenZ: zielRechts.length,
+        worteQ: quelleLinks.reduce((s, z) => s + (z.woerter?.length || 0), 0),
+        worteZ: zielRechts.reduce((s, z) => s + (z.woerter?.length || 0), 0),
+      },
+    };
+  }
 
   // Diagnose fuer den Bestaetigungsbildschirm.
   //

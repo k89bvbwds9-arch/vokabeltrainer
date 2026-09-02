@@ -12,7 +12,7 @@ import sharp from "sharp";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { zuPaaren } from "../paare.js";
+import { zuPaaren, spaltenAufteilung } from "../paare.js";
 import { MAX_BREITE, DUNKEL_AB, SEITENMODUS, SEITENMODUS_ERSATZ, MIN_ZEILEN } from "../bildwerte.js";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
@@ -82,17 +82,44 @@ function zeilenAus(daten) {
  * Modul, das in Node und Browser verschiedene Tesseract-Bauarten kapseln
  * muesste. Die Zahlen kommen aus bildwerte.js, damit nichts auseinanderlaeuft.
  */
-async function liesMitAusweich(arbeiterQ, arbeiterZ, puffer) {
-  const lies = async (a, modus) => {
+const alsZeilen = (daten) => zeilenAus(daten).map((z) => ({
+  text: z.text, conf: z.confidence, bbox: z.bbox,
+  woerter: (z.words || []).filter((w) => w.text && w.text.trim())
+    .map((w) => ({ text: w.text, conf: w.confidence, bbox: w.bbox })),
+}));
+
+/** Kaestchen eines Ausschnitts zurueck aufs ganze Bild rechnen. */
+function verschiebe(zeile, versatz) {
+  const um = (b) => ({ ...b, x0: b.x0 + versatz, x1: b.x1 + versatz });
+  return { ...zeile, bbox: um(zeile.bbox),
+    woerter: (zeile.woerter || []).map((w) => ({ ...w, bbox: um(w.bbox) })) };
+}
+
+async function liesMitAusweich(arbeiterQ, arbeiterZ, puffer, bildBreite, hoehe) {
+  const lies = async (a, modus, eingabe = puffer) => {
     await a.setParameters({ tessedit_pageseg_mode: modus });
-    const e = await a.recognize(puffer, {}, { blocks: true, text: false });
-    return zeilenAus(e.data).map((z) => ({
-      text: z.text, conf: z.confidence, bbox: z.bbox,
-      woerter: (z.words || []).filter((w) => w.text && w.text.trim())
-        .map((w) => ({ text: w.text, conf: w.confidence, bbox: w.bbox })),
-    }));
+    const e = await a.recognize(eingabe, {}, { blocks: true, text: false });
+    return alsZeilen(e.data);
   };
   let quelle = await lies(arbeiterQ, SEITENMODUS);
+
+  // Zwei Spalten? Dann jede einzeln lesen - genau wie die App. Die Begruendung
+  // mit Messwerten steht in spalten.js und erkennung.js.
+  const aufteilung = spaltenAufteilung(quelle, bildBreite);
+  if (aufteilung?.ok) {
+    const grenze = Math.round(aufteilung.grenze);
+    const links = await sharp(puffer).extract({ left: 0, top: 0, width: grenze, height: hoehe }).png().toBuffer();
+    const rechts = await sharp(puffer)
+      .extract({ left: grenze, top: 0, width: bildBreite - grenze, height: hoehe }).png().toBuffer();
+    const quelleLinks = await lies(arbeiterQ, SEITENMODUS, links);
+    const zielRechts = await lies(arbeiterZ, SEITENMODUS, rechts);
+    return {
+      quelle: quelleLinks,
+      ziel: zielRechts.map((z) => verschiebe(z, grenze)),
+      grenze, modus: SEITENMODUS, spaltenEinzeln: true,
+    };
+  }
+
   let ziel = await lies(arbeiterZ, SEITENMODUS);
   let modus = SEITENMODUS;
 
@@ -150,14 +177,16 @@ async function main() {
     if (!erwartet) console.log("(keine .erwartet.txt daneben — nur Anzeige, keine Messung)");
     const { puffer, dunkelmodus } = await vorverarbeite(bild);
     if (dunkelmodus) console.log("(als Dunkelmodus erkannt und umgedreht)");
-
     const t0 = Date.now();
-    const { quelle, ziel, modus } = await liesMitAusweich(arbeiterQ, arbeiterZ, puffer);
+    const { width: bildBreite, height: bildHoehe } = await sharp(puffer).metadata();
+    const { quelle, ziel, modus, grenze: vorgabe, spaltenEinzeln } =
+      await liesMitAusweich(arbeiterQ, arbeiterZ, puffer, bildBreite, bildHoehe);
     const dauer = Date.now() - t0;
-    const { width: bildBreite } = await sharp(puffer).metadata();
-    const { paare, unklar, verfahren } = zuPaaren({ quelle, ziel }, paar, bildBreite);
+    const { paare, unklar, verfahren } =
+      zuPaaren({ quelle, ziel, grenze: vorgabe }, paar, bildBreite);
 
-    console.log(`\n--- Modus ${modus} (${MODUS_NAME[modus]}) · ${dauer} ms · Verfahren "${verfahren}" ---`);
+    console.log(`\n--- Modus ${modus} (${MODUS_NAME[modus]}) · ${dauer} ms · Verfahren "${verfahren}"` +
+      `${spaltenEinzeln ? " · Spalten einzeln gelesen" : ""} ---`);
     for (const p of paare) console.log(`   ${p.sicher ? " " : "?"} ${p.quelle}  |  ${p.ziel}`);
     for (const u of unklar) console.log(`   ! ${u.quelle}   (${u.grund})`);
 

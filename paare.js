@@ -736,7 +736,17 @@ export function zuPaaren(durchlaeufe, paar, bildBreite = 0) {
   // danach waere nicht mehr erkennbar, was wohin gehoert.
   const breite = bildBreite
     || Math.max(0, ...(durchlaeufe.quelle || []).map((z) => z.bbox.x1)) + 40;
-  const aufteilung = spaltenAufteilung(durchlaeufe.quelle, breite) || { ok: false };
+
+  // Steht die Spaltengrenze schon fest, wird nicht neu gesucht. Das ist der
+  // Fall, wenn jede Spalte einzeln gelesen wurde: Dann enthaelt der
+  // Quell-Durchlauf nur noch die linke und der Ziel-Durchlauf nur noch die
+  // rechte Seite, und eine erneute Suche faende gar keine zwei Spalten mehr.
+  const aufteilung = durchlaeufe.grenze
+    ? { ok: true, grenze: durchlaeufe.grenze,
+        reihen: zuReihen(durchlaeufe.quelle),
+        reihenAnzahl: zuReihen(durchlaeufe.quelle).length,
+        beidseitigAnteil: null, vorgegeben: true }
+    : (spaltenAufteilung(durchlaeufe.quelle, breite) || { ok: false });
 
   if (aufteilung.ok) {
     return {

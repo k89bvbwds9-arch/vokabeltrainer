@@ -11,3 +11,5 @@ testbilder/IMG_*
 # lokal: Das ist der Inhalt eines fremden Buches, und das Repo ist oeffentlich.
 # Der Erkennungstest dafuer laeuft also nur auf Renes Rechner.
 testbilder/italienisch-buch.*
+testbilder/buch-geraetenah.*
+testbilder/erkennung-*.json
