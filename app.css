@@ -223,6 +223,11 @@ input[type="search"] { margin-bottom: 12px; }
   margin: 0 0 14px; font-variant-numeric: tabular-nums;
 }
 
+.diagnoseKnopf {
+  font-size: 11px; color: var(--ton); background: none;
+  padding: 2px 0 12px; text-decoration: underline;
+}
+
 .pruefZeile {
   background: var(--karte);
   border-radius: var(--rundung);

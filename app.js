@@ -26,6 +26,7 @@ const S = {
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
   verfahren: null,      // wie das letzte Bild gelesen wurde
   diagnose: null,       // nackte Zahlen des letzten Durchlaufs
+  rohdaten: null,       // vollstaendige Erkennung, zum Sichern als Datei
 };
 
 // --- Kurzmeldungen --------------------------------------------------------
@@ -306,6 +307,10 @@ async function verarbeiteFoto(datei) {
       zuPaaren(durchlaeufe, paar, durchlaeufe.bildBreite);
     S.verfahren = verfahren;
     S.diagnose = { ...durchlaeufe.diagnose, verfahren, grenze, messung };
+    // Die Rohdaten aufheben, damit sie sich als Datei sichern lassen. Ohne sie
+    // ist ein Fehler, der nur auf einem anderen Geraet auftritt, nicht
+    // nachzustellen - und Bildschirmfotos reichen ab einer gewissen Tiefe nicht.
+    S.rohdaten = { paar, durchlaeufe };
 
     S.vorschlaege = [
       ...paare.map((p) => ({ ...p, uebernehmen: true })),
@@ -370,6 +375,7 @@ function zeichnePruefung(paar) {
       (d.grenze ? `Steg ${Math.round(d.grenze)}` : "kein Steg") +
       ` · Fassung ${FASSUNG}`;
   }
+  el("btnErkennungSichern").hidden = !S.rohdaten;
 
   el("pruefListe").innerHTML = S.vorschlaege.map((v, i) => {
     const doppelt = bekannt.has(`${v.quelle} ${v.ziel}`);
@@ -441,6 +447,41 @@ function setzeHinzufuegenZurueck() {
 
 function kennung() {
   return (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+}
+
+/**
+ * Schreibt die vollstaendige Erkennung als Datei heraus.
+ *
+ * Zweck ist ausschliesslich die Fehlersuche: Eine Buchseite lief auf dem Mac
+ * fehlerfrei durch und ergab auf dem iPhone Unsinn. Ueber Bildschirmfotos war
+ * die Ursache nur schrittweise einzukreisen - mit dieser Datei laesst sich der
+ * Lauf des Telefons auf dem Rechner exakt nachstellen und im Prueflauf
+ * festhalten.
+ */
+async function sichereErkennung() {
+  if (!S.rohdaten) return;
+  const inhalt = JSON.stringify({
+    fassung: FASSUNG,
+    zeitpunkt: new Date().toISOString(),
+    paar: S.rohdaten.paar,
+    diagnose: S.diagnose,
+    durchlaeufe: S.rohdaten.durchlaeufe,
+  });
+  const name = `erkennung-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.json`;
+  const datei = new File([inhalt], name, { type: "application/json" });
+  try {
+    if (navigator.canShare?.({ files: [datei] })) {
+      await navigator.share({ files: [datei], title: "Erkennung sichern" });
+    } else {
+      const url = URL.createObjectURL(datei);
+      const a = document.createElement("a");
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+    }
+    melde("Erkennung gesichert.");
+  } catch (fehler) {
+    if (fehler.name !== "AbortError") melde(`Sichern fehlgeschlagen: ${fehler.message}`, 4000);
+  }
 }
 
 // --- Vokabelliste ---------------------------------------------------------
@@ -693,6 +734,7 @@ function verdrahte() {
   });
 
   el("btnUebernehmen").addEventListener("click", uebernimmVorschlaege);
+  el("btnErkennungSichern").addEventListener("click", sichereErkennung);
   el("btnPruefAbbrechen").addEventListener("click", setzeHinzufuegenZurueck);
   el("btnZeileDazu").addEventListener("click", () => {
     S.vorschlaege = [...lesePruefung(), { quelle: "", ziel: "", sicher: true, uebernehmen: true }];
