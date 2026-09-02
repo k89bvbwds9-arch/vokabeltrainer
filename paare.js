@@ -435,23 +435,50 @@ const BEIDSEITIG_ANZAHL = 6;
 // sein, damit der echte Steg die Stelle mitten im Text schlaegt.
 const QUER_GEWICHT = 3;
 
-/** Zeilen auf gleicher Hoehe zu einer Reihe zusammenfassen. */
+/**
+ * Zeilen auf gleicher Hoehe zu einer Reihe zusammenfassen.
+ *
+ * Verglichen wird gegen die MITTE der ersten Zeile einer Reihe, nicht gegen
+ * deren gewachsene Ausdehnung. Der Unterschied ist im Betrieb aufgefallen:
+ *
+ * Der erste Entwurf pruefte die Ueberlappung mit der bereits gewachsenen Reihe
+ * und dehnte sie bei jedem Treffer weiter. Auf Renes iPhone erkennt Tesseract
+ * 104 statt 44 Textzeilen, viele davon Bruchstuecke. Eines davon ueberlappt
+ * eine Reihe, dehnt sie nach unten, dann ueberlappt die naechste ECHTE
+ * Buchzeile die gedehnte Reihe - und so weiter. Aus 104 Zeilen wurden 47
+ * Reihen statt rund 90, und in einer Reihe landeten zwei Vokabeln:
+ * "Se | neu Haus; nach Hause, zuhause".
+ *
+ * Ein fester Bezugspunkt kann nicht wandern. Die Schwelle richtet sich nach
+ * der ueblichen Zeilenhoehe des Bildes, damit sie bei jeder Aufloesung passt.
+ */
 function zuReihen(zeilen) {
-  const sortiert = [...zeilen].sort((a, b) => a.bbox.y0 - b.bbox.y0);
+  const mitWorten = (zeilen || []).filter((z) => z.woerter?.length);
+  if (!mitWorten.length) return [];
+
+  const hoehen = mitWorten.map((z) => z.bbox.y1 - z.bbox.y0).sort((a, b) => a - b);
+  const uebliche = hoehen[Math.floor(hoehen.length / 2)] || 1;
+  const schwelle = uebliche * 0.6;
+
+  const mitte = (z) => (z.bbox.y0 + z.bbox.y1) / 2;
+  const sortiert = [...mitWorten].sort((a, b) => mitte(a) - mitte(b));
+
   const reihen = [];
   for (const z of sortiert) {
     const letzte = reihen[reihen.length - 1];
-    const ueber = letzte ? Math.min(letzte.y1, z.bbox.y1) - Math.max(letzte.y0, z.bbox.y0) : -1;
-    const hoehe = letzte ? Math.min(letzte.y1 - letzte.y0, z.bbox.y1 - z.bbox.y0) : 1;
-    if (letzte && hoehe > 0 && ueber / hoehe > 0.5) {
+    if (letzte && Math.abs(mitte(z) - letzte.ankerMitte) <= schwelle) {
       letzte.y0 = Math.min(letzte.y0, z.bbox.y0);
       letzte.y1 = Math.max(letzte.y1, z.bbox.y1);
-      letzte.woerter.push(...(z.woerter || []));
+      letzte.woerter.push(...z.woerter);
     } else {
-      reihen.push({ y0: z.bbox.y0, y1: z.bbox.y1, woerter: [...(z.woerter || [])] });
+      reihen.push({
+        y0: z.bbox.y0, y1: z.bbox.y1,
+        ankerMitte: mitte(z),        // fester Bezugspunkt, waechst nicht mit
+        woerter: [...z.woerter],
+      });
     }
   }
-  return reihen.filter((r) => r.woerter.length);
+  return reihen;
 }
 
 /**

@@ -350,6 +350,37 @@ pruefe("zieht keine Woerter aus der Nachbarzeile herein", () => {
   assert.equal(paare[1].ziel, "Angenehm");
 });
 
+pruefe("laesst ein hohes Bruchstueck keine Reihen verketten", () => {
+  // GEMESSEN auf Renes iPhone: Tesseract fand dort 104 statt 44 Textzeilen,
+  // darunter Bruchstuecke mit sehr hohem Kaestchen. Die alte Reihenbildung
+  // pruefte gegen die bereits gewachsene Reihe: Ein hohes Bruchstueck dehnte
+  // sie nach unten, die naechste echte Buchzeile passte dann auch hinein, und
+  // aus zwei Vokabeln wurde eine - "Se | neu Haus; nach Hause, zuhause".
+  const hoch = (y0, y1, worte) => ({
+    text: worte.map((w) => w.text).join(" "), conf: 60,
+    bbox: { x0: worte[0].bbox.x0, x1: worte[worte.length - 1].bbox.x1, y0, y1 },
+    woerter: worte.map((w) => ({ ...w, bbox: { ...w.bbox, y0, y1 } })),
+  });
+  const mitBruchstueck = [
+    alsZeile(200, [w2("nuovo", 185), w2("neu", 810)]),
+    hoch(210, 350, [w2("I", 700)]),                    // hohes Bruchstueck dazwischen
+    alsZeile(300, [w2("la casa", 185), w2("das Haus", 810)]),
+    alsZeile(400, [w2("il nome", 185), w2("der Name", 810)]),
+    alsZeile(500, [w2("la via", 185), w2("der Weg", 810)]),
+    alsZeile(600, [w2("il gatto", 185), w2("die Katze", 810)]),
+    alsZeile(700, [w2("la famiglia", 185), w2("die Familie", 810)]),
+    alsZeile(800, [w2("il numero", 185), w2("die Zahl", 810)]),
+  ];
+  const erg = zuPaaren({ quelle: mitBruchstueck, ziel: mitBruchstueck.map((z) => ({ ...z })) },
+    { quelle: "ita", ziel: "deu" }, 1600);
+  assert.equal(erg.verfahren, "spalten");
+  const nuovo = erg.paare.find((p) => p.quelle.includes("nuovo"));
+  assert.ok(nuovo, "nuovo fehlt ganz");
+  assert.equal(nuovo.ziel, "neu", `bekam "${nuovo.ziel}" - zwei Zeilen sind verschmolzen`);
+  assert.ok(erg.paare.some((p) => p.quelle === "la casa" && p.ziel === "das Haus"),
+    "la casa wurde von der Verkettung verschluckt");
+});
+
 pruefe("waehlt den echten Steg, nicht den leeren Streifen am Rand", () => {
   // GEMESSEN auf Renes iPhone: Der Steg landete in einem leeren Streifen rechts
   // vom deutschen Text; nur 6 statt 84 Prozent der Reihen waren dort beidseitig

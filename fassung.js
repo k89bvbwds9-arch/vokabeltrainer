@@ -7,4 +7,4 @@
 // ob das Geraet noch den alten Code ausfuehrte.
 //
 // Wird bei jeder Veroeffentlichung hochgezaehlt.
-export const FASSUNG = "2026-09-02 · 4";
+export const FASSUNG = "2026-09-02 · 5";
