@@ -33,25 +33,34 @@ for (const z of sortiert) {
   } else reihen.push({ y0:z.bbox.y0, y1:z.bbox.y1, woerter:[...z.woerter] });
 }
 
-const schritt=10, felder=Math.ceil(width/schritt), belegung=new Array(felder).fill(0);
-for (const r of reihen) { const d=new Set();
-  for (const wo of r.woerter) for (let x=Math.floor(wo.bbox.x0/schritt); x<=Math.floor(wo.bbox.x1/schritt); x++) if(x>=0&&x<felder) d.add(x);
-  for (const x of d) belegung[x]++; }
-const von=Math.floor(felder*0.2), bis=Math.floor(felder*0.8);
-let wenigste=Infinity; for(let i=von;i<=bis;i++) wenigste=Math.min(wenigste,belegung[i]);
-let anfang=-1, bester={laenge:0,x:-1};
-for(let i=von;i<=bis+1;i++){ const drin=i<=bis&&belegung[i]===wenigste;
-  if(drin&&anfang<0) anfang=i;
-  if(!drin&&anfang>=0){ const l=i-anfang; if(l>bester.laenge) bester={laenge:l,x:((anfang+i)/2)*schritt}; anfang=-1; } }
-const grenze=bester.x;
-const beidseitig = reihen.filter(r =>
-  r.woerter.some(w=>w.bbox.x1<=grenze) && r.woerter.some(w=>w.bbox.x0>=grenze)).length;
+// Profil der neuen Suche: wie gut trennt jede Stelle?
+const bewerte = (x) => {
+  let beidseitig = 0, drueber = 0;
+  for (const r of reihen) {
+    let li = false, re = false, quer = false;
+    for (const w of r.woerter) {
+      if (w.bbox.x1 <= x) li = true; else if (w.bbox.x0 >= x) re = true; else quer = true;
+    }
+    if (li && re) beidseitig++;
+    if (quer) drueber++;
+  }
+  return { beidseitig, drueber };
+};
+const schritt = 10, felder = Math.ceil(width / schritt);
+const von = Math.floor(felder * 0.2) * schritt, bis = Math.floor(felder * 0.8) * schritt;
+const werte = [];
+for (let x = von; x <= bis; x += schritt) werte.push({ x, ...bewerte(x) });
+const max = Math.max(...werte.map((w) => w.beidseitig));
+const besten = werte.filter((w) => w.beidseitig === max);
+const minDrueber = Math.min(...besten.map((w) => w.drueber));
 
-console.log(`\n${bild}  [${sprache}]`);
-console.log(`  Zeilen mit Woertern : ${zeilen.length}`);
-console.log(`  daraus Reihen       : ${reihen.length}`);
-console.log(`  Steg-Kandidat bei x : ${grenze}  (Breite ${bester.laenge*schritt} px)`);
-console.log(`  Belegung am Steg    : ${wenigste} von ${reihen.length} Reihen ` +
-  `= ${(wenigste/reihen.length*100).toFixed(0)} %   (erlaubt bis 12 %)`);
-console.log(`  beidseitig belegt   : ${beidseitig} von ${reihen.length} Reihen ` +
-  `= ${(beidseitig/reihen.length*100).toFixed(0)} %   (verlangt ab 60 %)`);
+console.log(`\n${bild}  [${sprache}]   ${reihen.length} Reihen, Bildbreite ${width}\n`);
+console.log("   x   beidseitig  drueber");
+for (const w of werte) {
+  if (w.x % 50) continue;
+  const marke = w.beidseitig === max ? (w.drueber === minDrueber ? "  <== beste" : "  <== max, aber quer") : "";
+  console.log(`${String(w.x).padStart(4)}  ${String(w.beidseitig).padStart(6)}  ${String(w.drueber).padStart(8)}${marke}`);
+}
+console.log(`\nHoechstes beidseitig: ${max} von ${reihen.length} = ${(max/reihen.length*100).toFixed(0)} %`);
+console.log(`Stellen mit diesem Wert: ${besten.length}, x von ${besten[0].x} bis ${besten[besten.length-1].x}`);
+console.log(`davon geringstes drueber: ${minDrueber} = ${(minDrueber/reihen.length*100).toFixed(0)} %  (erlaubt bis 12 %)`);

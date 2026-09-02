@@ -401,8 +401,9 @@ function paareNachAbstand(zeilen) {
 // besteht, ist danach gleichgueltig - beide Bauarten laufen durch denselben
 // Code.
 
-// Am Steg duerfen hoechstens so viele Reihen Text haben (Anteil aller Reihen).
-// Nicht null, weil eine Ueberschrift durchaus hineinragt.
+// Ueber den Steg duerfen hoechstens so viele Reihen mit einem Wort hinweg-
+// laufen (Anteil aller Reihen). Nicht null, weil eine Ueberschrift durchaus
+// ueber beide Spalten reicht.
 const STEG_HOECHSTENS = 0.12;
 
 // So viele REIHEN muessen auf beiden Seiten des Stegs Text haben, sonst ist es
@@ -456,58 +457,95 @@ export function spaltenAufteilung(zeilen, bildBreite) {
   const reihen = zuReihen((zeilen || []).filter((z) => z.woerter?.length));
   if (reihen.length < 5) return { ok: false, reihenAnzahl: reihen.length };
 
+  // Den Steg NICHT als leerste Stelle suchen, sondern als die Stelle, die am
+  // besten TRENNT.
+  //
+  // Der erste Entwurf nahm das Minimum der Belegungsdichte und prueft erst
+  // danach, ob dort wirklich zwei Spalten liegen. Auf dem Mac klappte das: Bei
+  // x=800 hatten null von 44 Reihen Text. Auf Renes iPhone erkennt Tesseract
+  // dieselbe Seite etwas anders, ein Bruchstueck faellt in die Luecke, und das
+  // Minimum wandert an eine ganz andere Stelle - rechts im deutschen Text, wo
+  // dann nur noch 6 statt 84 Prozent der Reihen beidseitig belegt sind.
+  //
+  // Die neue Suche probiert alle Stellen durch und nimmt die mit den meisten
+  // beidseitig belegten Reihen. Damit wird direkt das optimiert, worauf es
+  // ankommt, statt auf einen Stellvertreter zu hoffen.
   const schritt = 10;
   const felder = Math.ceil(bildBreite / schritt);
   if (felder < 10) return { ok: false, reihenAnzahl: reihen.length };
-  const belegung = new Array(felder).fill(0);
-  for (const r of reihen) {
-    const dabei = new Set();
-    for (const w of r.woerter) {
-      for (let x = Math.floor(w.bbox.x0 / schritt); x <= Math.floor(w.bbox.x1 / schritt); x++) {
-        if (x >= 0 && x < felder) dabei.add(x);
+
+  const von = Math.floor(felder * 0.2) * schritt;
+  const bis = Math.floor(felder * 0.8) * schritt;
+
+  const bewerte = (x) => {
+    let beidseitig = 0, drueber = 0;
+    for (const r of reihen) {
+      let links = false, rechts = false, quer = false;
+      for (const w of r.woerter) {
+        if (w.bbox.x1 <= x) links = true;
+        else if (w.bbox.x0 >= x) rechts = true;
+        else quer = true;
       }
+      if (links && rechts) beidseitig++;
+      if (quer) drueber++;
     }
-    for (const x of dabei) belegung[x]++;
-  }
+    return { beidseitig, drueber };
+  };
 
-  // Nur die Mitte kommt als Steg infrage. Der Rand ist immer leer.
-  const von = Math.floor(felder * 0.2), bis = Math.floor(felder * 0.8);
-  let wenigste = Infinity;
-  for (let i = von; i <= bis; i++) wenigste = Math.min(wenigste, belegung[i]);
-  if (!Number.isFinite(wenigste)) return { ok: false, reihenAnzahl: reihen.length };
-  if (wenigste > reihen.length * STEG_HOECHSTENS) {
-    return { ok: false, reihenAnzahl: reihen.length, stegAnteil: wenigste / reihen.length };
-  }
+  const werte = [];
+  for (let x = von; x <= bis; x += schritt) werte.push({ x, ...bewerte(x) });
+  if (!werte.length) return { ok: false, reihenAnzahl: reihen.length };
 
-  // Der Steg ist meist mehrere Felder breit. Getrennt wird in seiner MITTE:
-  // Dort ist der Abstand zu beiden Spalten am groessten, und eine leicht
-  // schief gehaltene Kamera schiebt die Zeilen dann nicht ueber die Grenze.
-  let laufAnfang = -1, bester = { laenge: 0, x: -1 };
-  for (let i = von; i <= bis + 1; i++) {
-    const imLauf = i <= bis && belegung[i] === wenigste;
-    if (imLauf && laufAnfang < 0) laufAnfang = i;
-    if (!imLauf && laufAnfang >= 0) {
+  // Die Reihenfolge der beiden Kriterien ist entscheidend, und beide Anlaeufe
+  // davor hatten sie falsch:
+  //
+  //   Nur "wenigste Woerter quer"  -> auf Renes iPhone landete der Steg in
+  //     einem leeren Streifen am rechten Rand; nur 6 statt 84 Prozent der
+  //     Reihen waren dort beidseitig belegt.
+  //   Nur "meiste beidseitig"      -> gemessen an der Buchseite liegt das
+  //     Hoechstmass (39 von 44) bei x=520 MITTEN im italienischen Text, wo
+  //     zwoelf Woerter quer laufen. Der echte Steg bei x=750 hat 37 - knapp
+  //     weniger, aber null quer.
+  //
+  // Zuerst also die Stellen, ueber die KEIN Wort hinweglaeuft - das ist die
+  // Eigenschaft einer echten Spaltengrenze -, und unter diesen die, die am
+  // meisten Reihen trennt.
+  const wenigstenQuer = Math.min(...werte.map((w) => w.drueber));
+  const knapp = werte.filter((w) => w.drueber === wenigstenQuer);
+  const meisteBeidseitig = Math.max(...knapp.map((w) => w.beidseitig));
+  const bester = { drueber: wenigstenQuer, beidseitig: meisteBeidseitig };
+
+  // Meist trennen viele Stellen gleich gut - naemlich der ganze Steg. Getrennt
+  // wird in seiner MITTE: Dort ist der Abstand zu beiden Spalten am groessten,
+  // und eine leicht schief gehaltene Kamera schiebt die Zeilen nicht ueber die
+  // Grenze.
+  let laufAnfang = -1, laengster = { laenge: 0, x: -1 };
+  for (let i = 0; i <= werte.length; i++) {
+    const passt = i < werte.length &&
+      werte[i].beidseitig === bester.beidseitig && werte[i].drueber === bester.drueber;
+    if (passt && laufAnfang < 0) laufAnfang = i;
+    if (!passt && laufAnfang >= 0) {
       const laenge = i - laufAnfang;
-      if (laenge > bester.laenge) bester = { laenge, x: ((laufAnfang + i) / 2) * schritt };
+      if (laenge > laengster.laenge) {
+        laengster = { laenge, x: (werte[laufAnfang].x + werte[i - 1].x) / 2 };
+      }
       laufAnfang = -1;
     }
   }
-  if (bester.x < 0) return { ok: false, reihenAnzahl: reihen.length };
-  const grenze = bester.x;
+  if (laengster.x < 0) return { ok: false, reihenAnzahl: reihen.length };
 
-  const beidseitig = reihen.filter((r) =>
-    r.woerter.some((w) => w.bbox.x1 <= grenze) &&
-    r.woerter.some((w) => w.bbox.x0 >= grenze)).length;
-
-  // Die Messwerte kommen IMMER zurueck, auch bei Ablehnung: Ohne sie war ein
-  // Fehler, der nur auf dem iPhone auftrat, nicht einzugrenzen.
+  const grenze = laengster.x;
   const messung = {
     grenze, reihenAnzahl: reihen.length,
-    stegAnteil: wenigste / reihen.length,
-    beidseitigAnteil: beidseitig / reihen.length,
+    stegAnteil: bester.drueber / reihen.length,
+    beidseitigAnteil: bester.beidseitig / reihen.length,
   };
-  if (beidseitig < BEIDSEITIG_ANZAHL) return { ...messung, ok: false };
-  if (beidseitig < reihen.length * BEIDSEITIG_MINDESTENS) return { ...messung, ok: false };
+
+  // Ueber den Steg selbst darf kaum ein Wort hinweglaufen - sonst ist es keine
+  // Spaltengrenze, sondern eine willkuerliche Stelle mitten im Text.
+  if (bester.drueber > reihen.length * STEG_HOECHSTENS) return { ...messung, ok: false };
+  if (bester.beidseitig < BEIDSEITIG_ANZAHL) return { ...messung, ok: false };
+  if (bester.beidseitig < reihen.length * BEIDSEITIG_MINDESTENS) return { ...messung, ok: false };
 
   return { ...messung, ok: true, reihen };
 }

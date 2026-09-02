@@ -114,7 +114,17 @@ zugeordnet, sonst an den Zeilenabständen.
 Erkannt wird das an der Belegungsdichte über die Bildbreite: Zwei dichte
 Blöcke mit einem leeren Steg dazwischen. Getrennt wird in der Mitte des Stegs.
 
-Dabei ist wichtig, dass zuerst nach **Höhe** gruppiert wird. Tesseract zerlegt
+Der Steg wird dabei **nicht als leerste Stelle** gesucht, sondern so: erst die
+Stellen, über die *kein Wort hinwegläuft* — das ist die Eigenschaft einer echten
+Spaltengrenze —, und unter diesen die, die *die meisten Zeilen trennt*. Beide
+Kriterien einzeln führen in die Irre, und beide Irrwege sind gemessen:
+
+| Kriterium allein | Ergebnis |
+|---|---|
+| nur „wenigste Wörter quer" | Steg landet im leeren Streifen rechts vom Text (6 % statt 84 % beidseitig) |
+| nur „meiste Zeilen getrennt" | Steg landet mitten im Text bei x=520 (39 von 44 getrennt, aber 12 Wörter quer) |
+
+Dabei ist außerdem wichtig, dass zuerst nach **Höhe** gruppiert wird. Tesseract zerlegt
 eine Buchseite je nach Bauart unterschiedlich: Auf dem Mac kommt eine Zeile je
 Tabellenzeile (`l'ingresso der Einstieg …`), auf dem iPhone kommen zwei – je
 Spalte eine. Wer verlangt, dass die *Zeilen* über beide Spalten reichen, hat
@@ -187,7 +197,7 @@ Ohne Browser, ohne Netz, in einer Sekunde:
 npm test
 ```
 
-84 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
+86 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
 gegen echt gemessene Erkennungswerte, Zusammenführen von Sicherungen.
 
 Der Erkennungstest braucht die eigenen Screenshots in `testbilder/` (die sind

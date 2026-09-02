@@ -350,6 +350,43 @@ pruefe("zieht keine Woerter aus der Nachbarzeile herein", () => {
   assert.equal(paare[1].ziel, "Angenehm");
 });
 
+pruefe("waehlt den echten Steg, nicht den leeren Streifen am Rand", () => {
+  // GEMESSEN auf Renes iPhone: Der Steg landete in einem leeren Streifen rechts
+  // vom deutschen Text; nur 6 statt 84 Prozent der Reihen waren dort beidseitig
+  // belegt. Hier nachgestellt: rechts vom Text ist viel Platz, und die
+  // Suche darf sich davon nicht anlocken lassen.
+  const mitLeerraum = buchPaare.map(([it, de], i) =>
+    alsZeile(200 + i * 100, [w2(it, 185), w2(de, 810)]));
+  const erg = zuPaaren({ quelle: mitLeerraum, ziel: mitLeerraum.map((z) => ({ ...z })) },
+    { quelle: "ita", ziel: "deu" }, 2600);   // Bild viel breiter als der Text
+  assert.equal(erg.verfahren, "spalten");
+  assert.ok(erg.grenze > 400 && erg.grenze < 810,
+    `Steg bei ${erg.grenze} statt zwischen den Spalten`);
+  assert.deepEqual(erg.paare.map((p) => `${p.quelle}|${p.ziel}`),
+    buchPaare.map(([it, de]) => `${it}|${de}`));
+});
+pruefe("nimmt keine Stelle mitten im Text, auch wenn sie mehr trennt", () => {
+  // GEMESSEN an der Buchseite: Das hoechste "beidseitig" (39 von 44) liegt bei
+  // x=520 mitten im italienischen Text, wo zwoelf Woerter quer laufen. Der
+  // echte Steg bei x=750 trennt eine Reihe weniger, dafuer laeuft dort nichts
+  // quer. Ohne Woerter quer schlaegt mehr Trennung.
+  const mitLangenEintraegen = [
+    ["il signore della casa", "der Herr"],
+    ["la famiglia numerosa", "die Familie"],
+    ["il palazzo antico", "das Wohnhaus"],
+    ["la professione nuova", "der Beruf"],
+    ["il numero di telefono", "die Zahl"],
+    ["la citta vecchia", "die Stadt"],
+    ["il cognome lungo", "der Nachname"],
+  ].map(([it, de], i) => alsZeile(200 + i * 100, [w2(it, 185), w2(de, 810)]));
+  const erg = zuPaaren({ quelle: mitLangenEintraegen, ziel: mitLangenEintraegen.map((z) => ({ ...z })) },
+    { quelle: "ita", ziel: "deu" }, 1600);
+  assert.equal(erg.verfahren, "spalten");
+  const querLaufend = mitLangenEintraegen.filter((z) =>
+    z.woerter.some((w) => w.bbox.x0 < erg.grenze && w.bbox.x1 > erg.grenze));
+  assert.equal(querLaufend.length, 0, "durch den Steg darf kein Wort laufen");
+});
+
 pruefe("lehnt ab, wenn nur eine Handvoll Reihen beidseitig belegt ist", () => {
   // Ein Anteil allein traegt bei wenigen Reihen nicht: drei von acht sind
   // 38 %, sagen aber nichts. Deshalb zusaetzlich eine absolute Untergrenze.
