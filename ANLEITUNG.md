@@ -57,6 +57,16 @@ und kommt nur noch alle vier Monate zur Kontrolle. Nicht gewusst wirft sie auf
 Anfang zurück, sie ist morgen wieder dran — und kommt einmal ans Ende der
 laufenden Runde.
 
+### Freies Üben
+
+„Frei üben, ohne Wertung" fragt nach der Gruppe: **Alle**, **Anfang**, die
+fünf Abstände oder der **Ruhestand** — dieselbe Einteilung wie die
+Fortschrittsbalken, mit den Anzahlen daneben. Leere Gruppen sind gesperrt.
+
+Der Merkstand bleibt dabei unverändert; Fälligkeiten verschieben sich nicht.
+Noch nie abgefragte Karten sind bewusst ausgenommen — sonst kennt man sie beim
+ersten echten Antreffen schon.
+
 Der Sinn: Jede Vokabel kommt genau dann, wenn man sie fast vergessen hätte.
 Gekonnte sieht man kaum noch, verliert sie aber auch nicht.
 
@@ -171,7 +181,7 @@ Ohne Browser, ohne Netz, in einer Sekunde:
 npm test
 ```
 
-72 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
+79 Prüfungen: Intervallleiter gegen simulierte Kalendertage, Zuordnungslogik
 gegen echt gemessene Erkennungswerte, Zusammenführen von Sicherungen.
 
 Der Erkennungstest braucht die eigenen Screenshots in `testbilder/` (die sind

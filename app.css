@@ -124,6 +124,26 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
   font-size: 14px;
 }
 
+.freiWahl { margin-top: 14px; }
+.freiZeile {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: var(--rundung);
+  background: var(--karte);
+  text-align: left;
+}
+.freiZeile:active { background: var(--karte2); }
+.freiZeile:disabled { opacity: .38; }
+.freiZeile b { font-weight: 600; }
+.freiZeile .freiText { flex: 1; min-width: 0; }
+.freiZeile .freiText span { display: block; font-size: 12px; color: var(--schrift-leise); }
+.freiZeile .freiAnzahl {
+  flex: none; font-variant-numeric: tabular-nums; font-weight: 650;
+  color: var(--ton); font-size: 17px;
+}
+
 /* --- Abfrage ----------------------------------------------------------- */
 .abfrage { display: flex; flex-direction: column; min-height: calc(100vh - 140px); }
 

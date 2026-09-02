@@ -361,6 +361,13 @@ tab.setStyle(TableStyle([
 A(tab)
 
 A(Spacer(1, 3 * mm))
+A(Paragraph("Einfach so üben, ohne dass es zählt", S["abschnitt"]))
+A(Paragraph("Unter <b>Frei üben, ohne Wertung</b> suchst du dir aus, was du durchgehen willst: "
+            "alles, nur die zuletzt nicht gewussten, oder gezielt eine der Abstandsgruppen. "
+            "Der Merkstand bleibt dabei unberührt – du kannst also so oft üben, wie du magst, "
+            "ohne den Plan durcheinanderzubringen.", S["text"]))
+
+A(Spacer(1, 2 * mm))
 A(Paragraph("Jede Vokabel wird übrigens <b>in beide Richtungen</b> abgefragt und getrennt "
             "gezählt. Dass dir bei „сейчас“ das Wort „jetzt“ einfällt, heißt ja nicht, dass dir "
             "umgekehrt „сейчас“ einfällt.", S["text"]))

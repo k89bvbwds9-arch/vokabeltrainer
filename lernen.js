@@ -168,6 +168,52 @@ export function mischen(liste) {
   return a;
 }
 
+// --- Freies Ueben ---------------------------------------------------------
+/**
+ * Beim freien Ueben zaehlt der Merkstand nicht - deshalb darf man sich
+ * aussuchen, WORAN man ueben will. Die Einteilung ist genau die der
+ * Fortschrittsbalken: Wer dort sieht, dass 40 Karten auf "Anfang" stehen, will
+ * meist genau diese 40 durchgehen.
+ */
+export function kartenDerKategorie(karten, schluessel) {
+  // "alle" heisst: alles, was schon einmal abgefragt wurde. Noch nie gezeigte
+  // Karten gehoeren in die richtige Runde, nicht ins Ueben ohne Wertung -
+  // sonst kennt man sie beim ersten echten Antreffen schon.
+  if (schluessel === "alle") return karten.filter((k) => k.faellig);
+  if (schluessel === "ruhend") return karten.filter((k) => k.ruht);
+  const stufe = Number(String(schluessel).replace("stufe", ""));
+  if (!Number.isFinite(stufe)) return [];
+  return karten.filter((k) => k.stufe === stufe && k.faellig && !k.ruht);
+}
+
+/** Die waehlbaren Kategorien samt Anzahl - Grundlage der Auswahlliste. */
+export function freieKategorien(karten = []) {
+  const tage = (n) => `${n} ${n === 1 ? "Tag" : "Tage"}`;
+  const tageDativ = (n) => (n === 1 ? "einem Tag" : `${n} Tagen`);
+  const liste = [{ schluessel: "alle", name: "Alle", hinweis: "quer durch den Bestand" }];
+
+  for (let stufe = 0; stufe <= INTERVALLE.length; stufe++) {
+    liste.push(stufe === 0
+      ? { schluessel: "stufe0", name: "Anfang", hinweis: "zuletzt nicht gewusst" }
+      : { schluessel: `stufe${stufe}`, name: tage(aktuellerAbstand(stufe)),
+          hinweis: `kommt im Abstand von ${tageDativ(aktuellerAbstand(stufe))}` });
+  }
+  liste.push({ schluessel: "ruhend", name: "Ruhestand", hinweis: "die Leiter durchlaufen" });
+
+  return liste.map((k) => ({ ...k, anzahl: kartenDerKategorie(karten, k.schluessel).length }));
+}
+
+/**
+ * Stellt eine Runde zum freien Ueben zusammen.
+ *
+ * Gemischt und ohne Geschwister - wie die richtige Runde auch. Der erste
+ * Entwurf benutzte hier ein "sort(() => Math.random() - 0.5)", das gar nicht
+ * gleichmaessig mischt, und liess beide Karten einer Vokabel zu.
+ */
+export function stelleFreieRundeZusammen(karten, { anzahl = 5, mische = mischen } = {}) {
+  return ohneGeschwister(mische(karten), anzahl);
+}
+
 /** Wie viele Karten waeren insgesamt dran? Fuer "Noch 35 faellig - weiter?" */
 export function offeneAnzahl(karten, tag = heute()) {
   return karten.filter((k) => !k.faellig || k.faellig <= tag).length;

@@ -21,6 +21,7 @@ const S = {
   wiederholt: new Set(),
   richtigInRunde: 0,
   frei: false,          // freies Ueben: veraendert den Merkstand nicht
+  kategorie: null,      // welche Gruppe beim freien Ueben gewaehlt wurde
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
 };
 
@@ -65,7 +66,12 @@ function zeichneStart() {
   const groesse = zustand.einstellungen.rundenGroesse;
 
   el("btnLosgehts").disabled = offen === 0;
-  el("btnFreiUeben").hidden = !(offen === 0 && zustand.karten.length > 0);
+  // Freies Ueben steht immer zur Verfuegung, sobald ueberhaupt etwas gelernt
+  // wurde - nicht nur, wenn nichts mehr faellig ist. Rene wollte "zwischendurch
+  // mal etwas tun koennen", und das kollidiert nicht mit der richtigen Runde.
+  el("btnFreiUeben").hidden = !zustand.karten.some((k) => k.faellig);
+  if (el("btnFreiUeben").hidden) { el("freiWahl").hidden = true; }
+  else zeichneFreieKategorien(zustand);
 
   if (zustand.karten.length === 0) {
     el("startHinweis").textContent = "Noch keine Vokabeln. Leg über „Hinzufügen“ los.";
@@ -77,6 +83,19 @@ function zeichneStart() {
   }
 
   zeigeSicherungsWarnung(zustand);
+}
+
+/**
+ * Die Auswahl fuers freie Ueben - dieselbe Einteilung wie die
+ * Fortschrittsbalken. Wer dort sieht, dass 40 Karten auf "Anfang" stehen,
+ * will meist genau diese 40 durchgehen.
+ */
+function zeichneFreieKategorien(zustand) {
+  el("freiListe").innerHTML = lernen.freieKategorien(zustand.karten).map((k) => `
+    <button class="freiZeile" data-kategorie="${k.schluessel}" ${k.anzahl ? "" : "disabled"}>
+      <span class="freiText"><b>${k.name}</b><span>${k.hinweis}</span></span>
+      <span class="freiAnzahl">${k.anzahl}</span>
+    </button>`).join("");
 }
 
 function zeigeSicherungsWarnung(zustand) {
@@ -98,18 +117,20 @@ function zeigeSicherungsWarnung(zustand) {
 }
 
 // --- Runde ----------------------------------------------------------------
-function starteRunde({ frei = false } = {}) {
+function starteRunde({ frei = false, kategorie = null } = {}) {
   const zustand = speicher.hole();
   S.frei = frei;
+  S.kategorie = kategorie;
   S.wiederholt = new Set();
   S.stelle = 0;
   S.richtigInRunde = 0;
 
   if (frei) {
-    // Freies Ueben nimmt einen zufaelligen Querschnitt und laesst den
-    // Merkstand in Ruhe - sonst wuerde Ueben den Kalender durcheinanderbringen.
-    S.runde = [...zustand.karten].sort(() => Math.random() - 0.5)
-      .slice(0, zustand.einstellungen.rundenGroesse);
+    // Freies Ueben laesst den Merkstand in Ruhe - sonst wuerde Ueben den
+    // Kalender durcheinanderbringen.
+    S.runde = lernen.stelleFreieRundeZusammen(
+      lernen.kartenDerKategorie(zustand.karten, kategorie || "alle"),
+      { anzahl: zustand.einstellungen.rundenGroesse });
   } else {
     S.runde = lernen.stelleRundeZusammen(zustand.karten,
       { anzahl: zustand.einstellungen.rundenGroesse });
@@ -118,6 +139,12 @@ function starteRunde({ frei = false } = {}) {
   if (!S.runde.length) { melde("Nichts zu üben."); return; }
   zeige("abfrage");
   zeigeKarte();
+}
+
+/** Name der gewaehlten Kategorie, fuer die Rueckmeldung am Rundenende. */
+function kategorieName(schluessel) {
+  const treffer = lernen.freieKategorien().find((k) => k.schluessel === schluessel);
+  return treffer ? treffer.name : "Alle";
 }
 
 function vokabelZu(karte) {
@@ -217,12 +244,18 @@ function zeigeRundenEnde() {
   const gestellt = S.runde.length;
   el("fertigZahl").textContent = `${S.richtigInRunde} von ${gestellt}`;
 
-  const offen = S.frei ? 0 : lernen.offeneAnzahl(speicher.hole().karten);
-  el("fertigText").textContent = S.frei
-    ? "Freies Üben – der Merkstand bleibt unverändert."
-    : offen > 0 ? `Noch ${offen} ${offen === 1 ? "Karte ist" : "Karten sind"} offen.`
+  if (S.frei) {
+    const vorrat = lernen.kartenDerKategorie(speicher.hole().karten, S.kategorie || "alle").length;
+    el("fertigText").textContent =
+      `Freies Üben · ${kategorieName(S.kategorie)} – der Merkstand bleibt unverändert.`;
+    el("btnWeitereRunde").hidden = vorrat <= gestellt;
+  } else {
+    const offen = lernen.offeneAnzahl(speicher.hole().karten);
+    el("fertigText").textContent = offen > 0
+      ? `Noch ${offen} ${offen === 1 ? "Karte ist" : "Karten sind"} offen.`
       : "Alles erledigt für heute.";
-  el("btnWeitereRunde").hidden = offen === 0;
+    el("btnWeitereRunde").hidden = offen === 0;
+  }
 }
 
 // --- Sprachpaare ----------------------------------------------------------
@@ -596,8 +629,17 @@ function verdrahte() {
     b.addEventListener("click", () => zeige(b.dataset.ziel)));
 
   el("btnLosgehts").addEventListener("click", () => starteRunde());
-  el("btnFreiUeben").addEventListener("click", () => starteRunde({ frei: true }));
-  el("btnWeitereRunde").addEventListener("click", () => starteRunde({ frei: S.frei }));
+  el("btnFreiUeben").addEventListener("click", () => {
+    const kasten = el("freiWahl");
+    kasten.hidden = !kasten.hidden;
+    if (!kasten.hidden) kasten.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+  el("freiListe").addEventListener("click", (e) => {
+    const knopf = e.target.closest("[data-kategorie]");
+    if (knopf) starteRunde({ frei: true, kategorie: knopf.dataset.kategorie });
+  });
+  el("btnWeitereRunde").addEventListener("click", () =>
+    starteRunde({ frei: S.frei, kategorie: S.kategorie }));
   el("btnZurueckZumStart").addEventListener("click", () => zeige("start"));
   el("btnAbbrechen").addEventListener("click", () => zeige("start"));
 

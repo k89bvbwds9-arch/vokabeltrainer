@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import { INTERVALLE, RUHE_TAGE, plusTage, tageZwischen, neueKarte, bewerte,
   stelleRundeZusammen, offeneAnzahl, haengeAn, statistik, heute,
-  aktuellerAbstand, mischen } from "../lernen.js";
+  aktuellerAbstand, mischen, freieKategorien, kartenDerKategorie,
+  stelleFreieRundeZusammen } from "../lernen.js";
 
 let bestanden = 0;
 function pruefe(name, fn) {
@@ -315,6 +316,69 @@ pruefe("laesst ruhende Karten aus den Balken heraus", () => {
   const s = statistik({ karten: [k] }, tag);
   assert.equal(s.proStufe.reduce((summe, b) => summe + b.anzahl, 0), 0);
   assert.equal(s.ruhend, 1);
+});
+
+console.log("\nFreies Ueben nach Kategorie");
+
+// Renes echter Stand vom 02.09.2026: 40 auf "Anfang", 124 auf einem Tag,
+// 194 auf drei Tagen, nichts weiter oben, nichts im Ruhestand.
+const RENES_STAND = [
+  ...Array.from({ length: 40 },  (_, i) => ({ ...K("a" + i, "va" + i, T0), stufe: 0 })),
+  ...Array.from({ length: 124 }, (_, i) => ({ ...K("b" + i, "vb" + i, T0), stufe: 1 })),
+  ...Array.from({ length: 194 }, (_, i) => ({ ...K("c" + i, "vc" + i, T0), stufe: 2 })),
+];
+
+pruefe("bietet Alle, sechs Stufen und den Ruhestand an", () => {
+  const namen = freieKategorien([]).map((k) => k.name);
+  assert.deepEqual(namen,
+    ["Alle", "Anfang", "1 Tag", "3 Tage", "7 Tage", "16 Tage", "35 Tage", "Ruhestand"]);
+});
+pruefe("zaehlt Renes Stand genauso wie die Fortschrittsbalken", () => {
+  const nach = Object.fromEntries(freieKategorien(RENES_STAND).map((k) => [k.name, k.anzahl]));
+  assert.equal(nach["Anfang"], 40);
+  assert.equal(nach["1 Tag"], 124);
+  assert.equal(nach["3 Tage"], 194);
+  assert.equal(nach["7 Tage"], 0);
+  assert.equal(nach["Ruhestand"], 0);
+  assert.equal(nach["Alle"], 358);
+});
+pruefe("liefert nur Karten der gewaehlten Kategorie", () => {
+  const gewaehlt = kartenDerKategorie(RENES_STAND, "stufe2");
+  assert.equal(gewaehlt.length, 194);
+  assert.ok(gewaehlt.every((k) => k.stufe === 2));
+});
+pruefe("trennt den Ruhestand von der letzten Stufe", () => {
+  const karten = [
+    { ...K("r", "vr", T0), stufe: INTERVALLE.length, ruht: true },
+    { ...K("w", "vw", T0), stufe: INTERVALLE.length, ruht: false },
+  ];
+  assert.equal(kartenDerKategorie(karten, "ruhend").length, 1);
+  assert.equal(kartenDerKategorie(karten, `stufe${INTERVALLE.length}`).length, 1);
+});
+pruefe("laesst nie abgefragte Karten aus dem freien Ueben heraus", () => {
+  // Sonst kennt man sie beim ersten echten Antreffen schon.
+  const karten = [K("neu", "vneu"), { ...K("alt", "valt", T0), stufe: 1 }];
+  assert.equal(kartenDerKategorie(karten, "alle").length, 1);
+  assert.equal(kartenDerKategorie(karten, "alle")[0].id, "alt");
+});
+pruefe("die freie Runde ist begrenzt, gemischt und ohne Geschwister", () => {
+  const paarweise = [];
+  for (let i = 0; i < 20; i++) {
+    paarweise.push({ ...K("h" + i, "v" + i, T0, "hin"), stufe: 1 });
+    paarweise.push({ ...K("r" + i, "v" + i, T0, "rueck"), stufe: 1 });
+  }
+  const gesehen = new Set();
+  for (let lauf = 0; lauf < 25; lauf++) {
+    const runde = stelleFreieRundeZusammen(paarweise, { anzahl: 5 });
+    assert.equal(runde.length, 5);
+    const vokabeln = runde.map((k) => k.vokabelId);
+    assert.equal(new Set(vokabeln).size, 5, "eine Vokabel steckt doppelt in der Runde");
+    gesehen.add(runde.map((k) => k.id).join(","));
+  }
+  assert.ok(gesehen.size > 1, "die Reihenfolge war in 25 Laeufen immer dieselbe");
+});
+pruefe("eine leere Kategorie ergibt eine leere Runde", () => {
+  assert.equal(stelleFreieRundeZusammen(kartenDerKategorie(RENES_STAND, "ruhend"), { anzahl: 5 }).length, 0);
 });
 
 console.log(`\n${bestanden} Pruefungen bestanden` +
