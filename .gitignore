@@ -13,3 +13,7 @@ testbilder/IMG_*
 testbilder/italienisch-buch.*
 testbilder/buch-geraetenah.*
 testbilder/erkennung-*.json
+
+# Die Python-Umgebung fuers PDF (reportlab, pillow). Wird nur gebraucht, wenn
+# die Anleitung neu gebaut wird - Anweisung in anleitung/LIESMICH.md.
+.pdfumgebung/

@@ -32,7 +32,7 @@
     <div class="mitte">
       <button class="gross" id="btnLosgehts">Los geht’s</button>
       <p class="hinweis" id="startHinweis"></p>
-      <button class="flach" id="btnFreiUeben" hidden>Frei üben, ohne Wertung</button>
+      <button class="flach" id="btnFreiUeben" hidden>Frei üben</button>
 
       <div class="wahlKasten" id="sprachWahl" hidden>
         <p class="hinweis" id="sprachWahlKopf"></p>
@@ -44,7 +44,11 @@
       </div>
 
       <div class="freiWahl" id="freiWahl" hidden>
-        <p class="hinweis">Was möchtest du durchgehen? Der Merkstand bleibt dabei unverändert.</p>
+        <!-- Der Zusatz ist nicht Zierde: Freies Ueben aendert sonst nie etwas,
+             und im Ruhestand jetzt doch. Wer das nicht weiss, wundert sich am
+             naechsten Morgen ueber zusaetzlich faellige Karten. -->
+        <p class="hinweis">Was möchtest du durchgehen? Der Merkstand bleibt unverändert –
+          nur im Ruhestand gehen vergessene Vokabeln zurück auf Anfang.</p>
         <div id="freiListe"></div>
       </div>
     </div>

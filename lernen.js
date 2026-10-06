@@ -210,10 +210,12 @@ export function paarStatistik(zustand, tag = heute()) {
 
 // --- Freies Ueben ---------------------------------------------------------
 /**
- * Beim freien Ueben zaehlt der Merkstand nicht - deshalb darf man sich
+ * Beim freien Ueben zaehlt der Merkstand fast nie - deshalb darf man sich
  * aussuchen, WORAN man ueben will. Die Einteilung ist genau die der
  * Fortschrittsbalken: Wer dort sieht, dass 40 Karten auf "Anfang" stehen, will
  * meist genau diese 40 durchgehen.
+ *
+ * "Fast nie": die eine Ausnahme steht bei bewerteFrei().
  */
 export function kartenDerKategorie(karten, schluessel) {
   // "alle" heisst: alles, was schon einmal abgefragt wurde. Noch nie gezeigte
@@ -238,7 +240,10 @@ export function freieKategorien(karten = []) {
       : { schluessel: `stufe${stufe}`, name: tage(aktuellerAbstand(stufe)),
           hinweis: `kommt im Abstand von ${tageDativ(aktuellerAbstand(stufe))}` });
   }
-  liste.push({ schluessel: "ruhend", name: "Ruhestand", hinweis: "die Leiter durchlaufen" });
+  // Der Hinweis nennt hier die Wirkung, nicht den Inhalt: Der Ruhestand ist die
+  // einzige Gruppe, in der Ueben etwas veraendern kann.
+  liste.push({ schluessel: "ruhend", name: "Ruhestand",
+    hinweis: "vergessene gehen zurück auf Anfang" });
 
   return liste.map((k) => ({ ...k, anzahl: kartenDerKategorie(karten, k.schluessel).length }));
 }
@@ -252,6 +257,35 @@ export function freieKategorien(karten = []) {
  */
 export function stelleFreieRundeZusammen(karten, { anzahl = 5, mische = mischen } = {}) {
   return ohneGeschwister(mische(karten), anzahl);
+}
+
+/**
+ * Bewertung beim freien Ueben. Gibt die geaenderte Karte zurueck - oder null,
+ * wenn der Merkstand unberuehrt bleiben soll.
+ *
+ * Freies Ueben laesst den Kalender grundsaetzlich in Ruhe, sonst waere es ein
+ * Weg, sich den Lernplan versehentlich umzuwerfen. Eine Ausnahme hat Rene
+ * bestellt, und sie ergibt sich aus dem Zweck des Ruhestands: Dort liegen
+ * Vokabeln, die vier Monate lang gar nicht vorkommen. Faellt bei einer davon
+ * beim Durchgehen auf, dass sie weg ist, waere es widersinnig, sie weitere
+ * Wochen schweigend liegen zu lassen, bis der Kontrolltermin kommt. Sie geht
+ * zurueck auf Anfang und laeuft die Leiter neu.
+ *
+ * Zwei Grenzen sind dabei Absicht:
+ *   - Nur "nicht gewusst" wirkt. Eine gekonnte Vokabel bleibt auf ihrem
+ *     Termin stehen - wuerde sie die 120 Tage neu starten, koennte freies
+ *     Ueben den Kontrolltermin unbemerkt immer weiter vor sich herschieben.
+ *   - Nur ruhende Karten. Bei allen anderen bleibt das Ueben wertungsfrei,
+ *     wie es beim Lernen in Arbeit auch sein soll.
+ *
+ * Der Massstab ist der Zustand der KARTE, nicht die gewaehlte Gruppe. Wer
+ * "Alle" durchgeht und dabei auf eine ruhende Vokabel stoesst, soll dieselbe
+ * Wirkung haben wie in der Gruppe "Ruhestand" - er hat die Vokabel ja genauso
+ * vergessen.
+ */
+export function bewerteFrei(karte, gewusst, tag = heute()) {
+  if (gewusst || !karte.ruht) return null;
+  return bewerte(karte, false, tag);
 }
 
 /** Wie viele Karten waeren insgesamt dran? Fuer "Noch 35 faellig - weiter?" */

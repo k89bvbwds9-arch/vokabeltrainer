@@ -23,6 +23,7 @@ const S = {
   richtigInRunde: 0,
   frei: false,          // freies Ueben: veraendert den Merkstand nicht
   kategorie: null,      // welche Gruppe beim freien Ueben gewaehlt wurde
+  geweckt: 0,           // vergessene Ruhestaendler, die diese Runde zurueckwarf
   wahlZiel: null,       // wohin die Sprachauswahl fuehrt: "runde" oder "frei"
   fortschrittPaar: null,  // welches Sprachpaar der Fortschritt zeigt; null = alle
   vorschlaege: [],      // was der Bestaetigungsbildschirm gerade zeigt
@@ -183,6 +184,7 @@ function starteRunde({ frei = false, kategorie = null } = {}) {
   S.wiederholt = new Set();
   S.stelle = 0;
   S.richtigInRunde = 0;
+  S.geweckt = 0;
 
   if (frei) {
     // Freies Ueben laesst den Merkstand in Ruhe - sonst wuerde Ueben den
@@ -288,15 +290,32 @@ async function bewerte(gewusst) {
   const karte = S.runde[S.stelle];
   if (gewusst) S.richtigInRunde++;
 
-  if (!S.frei) {
+  // Beim freien Ueben bleibt der Merkstand stehen - ausser bei einer
+  // vergessenen Vokabel aus dem Ruhestand, die geht zurueck auf Anfang
+  // (Begruendung bei lernen.bewerteFrei). Ob das zutrifft, entscheidet die
+  // Karte im Bestand, nicht die Kopie in der Runde: Dieselbe Karte kann als
+  // falsch beantwortete noch ein zweites Mal kommen, und dann ruht sie schon
+  // nicht mehr - sie darf nicht doppelt gezaehlt werden.
+  if (!S.frei || (!gewusst && karte.ruht)) {
     // Nach JEDER Karte schreiben, nicht erst am Rundenende: Wer zwischendurch
     // die App wegwischt oder einen Anruf bekommt, soll bereits beantwortete
     // Karten nicht noch einmal vorgelegt bekommen.
+    let geweckt = false;
     await speicher.aendere((z) => {
       const i = z.karten.findIndex((k) => k.id === karte.id);
-      if (i >= 0) z.karten[i] = lernen.bewerte(z.karten[i], gewusst);
+      if (i < 0) return z;
+      if (S.frei) {
+        const zurueck = lernen.bewerteFrei(z.karten[i], gewusst);
+        if (zurueck) { z.karten[i] = zurueck; geweckt = true; }
+      } else {
+        z.karten[i] = lernen.bewerte(z.karten[i], gewusst);
+      }
       return z;
     });
+    if (geweckt) {
+      S.geweckt++;
+      melde("Zurück auf Anfang – kommt morgen wieder.");
+    }
   }
 
   // Falsch beantwortete Karten kommen ans Ende der Runde - genau einmal.
@@ -318,8 +337,14 @@ function zeigeRundenEnde() {
 
   if (S.frei) {
     const vorrat = lernen.kartenDerKategorie(gewaehlteKarten(), S.kategorie || "alle").length;
-    el("fertigText").textContent =
-      `Freies Üben · ${kategorieName(S.kategorie)} – der Merkstand bleibt unverändert.`;
+    // Das Zurueckwerfen ist die einzige Wirkung, die freies Ueben haben kann -
+    // und sie gehoert deshalb ausdruecklich hierher. Sonst waere am naechsten
+    // Morgen unklar, woher die zusaetzlich faelligen Karten kommen.
+    el("fertigText").textContent = S.geweckt
+      ? `Freies Üben · ${kategorieName(S.kategorie)} – ${S.geweckt === 1
+          ? "eine vergessene Vokabel geht"
+          : `${S.geweckt} vergessene Vokabeln gehen`} zurück auf Anfang.`
+      : `Freies Üben · ${kategorieName(S.kategorie)} – der Merkstand bleibt unverändert.`;
     el("btnWeitereRunde").hidden = vorrat <= gestellt;
   } else {
     const offen = lernen.offeneAnzahl(gewaehlteKarten());

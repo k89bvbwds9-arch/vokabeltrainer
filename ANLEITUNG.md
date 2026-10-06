@@ -74,13 +74,25 @@ Entscheidung.
 
 ### Freies Üben
 
-„Frei üben, ohne Wertung" fragt — nach den Sprachen — nach der Gruppe: **Alle**, **Anfang**, die
+„Frei üben" fragt — nach den Sprachen — nach der Gruppe: **Alle**, **Anfang**, die
 fünf Abstände oder der **Ruhestand** — dieselbe Einteilung wie die
 Fortschrittsbalken, mit den Anzahlen daneben. Leere Gruppen sind gesperrt.
 
 Der Merkstand bleibt dabei unverändert; Fälligkeiten verschieben sich nicht.
 Noch nie abgefragte Karten sind bewusst ausgenommen — sonst kennt man sie beim
 ersten echten Antreffen schon.
+
+**Eine Ausnahme: der Ruhestand.** Dort liegen Vokabeln, die vier Monate lang
+gar nicht vorkommen. Fällt beim Durchgehen auf, dass eine davon weg ist, wäre
+es widersinnig, sie bis zum Kontrolltermin weiter schweigen zu lassen: „Nicht
+gewusst" wirft sie zurück auf Anfang, und sie läuft die Leiter neu. Am
+Rundenende steht, wie viele das waren.
+
+Das gilt für die Karte, nicht für die Gruppe — auch wer **Alle** durchgeht und
+dabei auf eine ruhende Vokabel stößt, wirft sie mit „Nicht gewusst" zurück. In
+die andere Richtung passiert nichts: Eine gekonnte Vokabel bleibt auf ihrem
+Termin stehen. Würde sie die vier Monate neu starten, könnte freies Üben den
+Kontrolltermin unbemerkt immer weiter vor sich herschieben.
 
 Der Sinn: Jede Vokabel kommt genau dann, wenn man sie fast vergessen hätte.
 Gekonnte sieht man kaum noch, verliert sie aber auch nicht.

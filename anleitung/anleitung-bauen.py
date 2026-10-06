@@ -369,10 +369,18 @@ A(Paragraph("Führst du mehr als ein Sprachpaar, fragt die App beim Start einer 
 
 A(Spacer(1, 2 * mm))
 A(Paragraph("Einfach so üben, ohne dass es zählt", S["abschnitt"]))
-A(Paragraph("Unter <b>Frei üben, ohne Wertung</b> suchst du dir aus, was du durchgehen willst: "
+A(Paragraph("Unter <b>Frei üben</b> suchst du dir aus, was du durchgehen willst: "
             "alles, nur die zuletzt nicht gewussten, oder gezielt eine der Abstandsgruppen. "
             "Der Merkstand bleibt dabei unberührt – du kannst also so oft üben, wie du magst, "
             "ohne den Plan durcheinanderzubringen.", S["text"]))
+
+A(Spacer(1, 2 * mm))
+A(Paragraph("<b>Eine Ausnahme: der Ruhestand.</b> Dort liegen die Vokabeln, die du durch hast "
+            "und die vier Monate lang gar nicht mehr vorkommen. Merkst du beim Durchgehen, dass "
+            "dir eine davon entfallen ist, tippst du <b>Nicht gewusst</b> – und sie fängt wieder "
+            "von vorn an. Sonst müsstest du bis zum Kontrolltermin warten, obwohl du längst "
+            "weißt, dass sie weg ist. Umgekehrt passiert nichts: Was du kannst, bleibt in "
+            "Ruhe.", S["text"]))
 
 A(Spacer(1, 2 * mm))
 A(Paragraph("Jede Vokabel wird übrigens <b>in beide Richtungen</b> abgefragt und getrennt "

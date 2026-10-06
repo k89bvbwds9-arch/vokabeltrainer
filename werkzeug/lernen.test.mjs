@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { INTERVALLE, RUHE_TAGE, plusTage, tageZwischen, neueKarte, bewerte,
   stelleRundeZusammen, offeneAnzahl, haengeAn, statistik, heute,
   aktuellerAbstand, mischen, freieKategorien, kartenDerKategorie,
-  stelleFreieRundeZusammen, kartenDerPaare, paarStatistik } from "../lernen.js";
+  stelleFreieRundeZusammen, kartenDerPaare, paarStatistik,
+  bewerteFrei } from "../lernen.js";
 
 let bestanden = 0;
 function pruefe(name, fn) {
@@ -435,6 +436,54 @@ pruefe("die Runde bleibt beim gewaehlten Sprachpaar", () => {
   const runde = stelleRundeZusammen(nurItalienisch, { anzahl: 5, tag: T0 });
   assert.equal(runde.length, 2);
   assert.ok(runde.every((k) => k.id.startsWith("ki")));
+});
+
+console.log("\nWertung beim freien Ueben");
+
+// Eine ruhende Karte: die Leiter durchlaufen, Kontrolltermin in 120 Tagen.
+const RUHENDE = { ...K("r1", "vr1", plusTage(T0, RUHE_TAGE)),
+  stufe: INTERVALLE.length, ruht: true, richtig: 6, zuletzt: T0 };
+// Eine mitten in der Leiter - hier soll Ueben nichts veraendern.
+const IN_ARBEIT = { ...K("w1", "vw1", T0), stufe: 2, richtig: 2, zuletzt: T0 };
+
+pruefe("vergessene Vokabel aus dem Ruhestand geht zurueck auf Anfang", () => {
+  const neu = bewerteFrei(RUHENDE, false, T0);
+  assert.ok(neu, "es muss sich etwas aendern");
+  assert.equal(neu.stufe, 0);
+  assert.equal(neu.ruht, false);
+  assert.equal(neu.faellig, plusTage(T0, 1), "morgen wieder, nicht heute");
+  assert.equal(neu.falsch, 1);
+});
+pruefe("gekonnte Vokabel im Ruhestand bleibt auf ihrem Termin", () => {
+  // Wuerde sie die 120 Tage neu starten, koennte freies Ueben den
+  // Kontrolltermin unbemerkt immer weiter vor sich herschieben.
+  assert.equal(bewerteFrei(RUHENDE, true, T0), null);
+});
+pruefe("Karten in Arbeit bleiben beim freien Ueben unberuehrt", () => {
+  assert.equal(bewerteFrei(IN_ARBEIT, false, T0), null);
+  assert.equal(bewerteFrei(IN_ARBEIT, true, T0), null);
+});
+pruefe("eine nie abgefragte Karte wird auch nicht zurueckgeworfen", () => {
+  assert.equal(bewerteFrei(K("n", "vn"), false, T0), null);
+});
+pruefe("die Ruhestandsgruppe schrumpft um die zurueckgeworfene Karte", () => {
+  const vorher = [RUHENDE, { ...RUHENDE, id: "r2", vokabelId: "vr2" }, IN_ARBEIT];
+  assert.equal(kartenDerKategorie(vorher, "ruhend").length, 2);
+  // nur r1 ist vergessen; r2 sass und bleibt, wo sie ist
+  const nachher = vorher.map((k) =>
+    (k.id === "r1" ? bewerteFrei(k, false, T0) : bewerteFrei(k, true, T0)) || k);
+  assert.equal(kartenDerKategorie(nachher, "ruhend").length, 1);
+  // und landet dort, wo der Fortschritt sie als "Anfang" zeigt
+  assert.equal(kartenDerKategorie(nachher, "stufe0").length, 1);
+});
+pruefe("zurueckgeworfen heisst wirklich von vorn, nicht eine Stufe tiefer", () => {
+  // Der Sinn der Sache: eine vergessene Vokabel neu einschleifen. Eine Stufe
+  // tiefer waere sie nach 16 Tagen wieder faellig - zu spaet zum Lernen.
+  const neu = bewerteFrei(RUHENDE, false, T0);
+  assert.equal(aktuellerAbstand(neu.stufe), 1);
+});
+pruefe("das Zurueckwerfen rechnet genau wie die richtige Runde", () => {
+  assert.deepEqual(bewerteFrei(RUHENDE, false, T0), bewerte(RUHENDE, false, T0));
 });
 
 console.log(`\n${bestanden} Pruefungen bestanden` +
